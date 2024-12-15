@@ -212,13 +212,28 @@ end
 return if ARGV.first&.end_with?('sql_formatter_spec.rb')
 
 # Otherwise, process CLI input
+input = ARGV.join(' ')
+
+# If no argument, enter into interactive mode
 if ARGV.empty?
-else
-  formatter = SqlFormatter.new(ARGV.join(' '))
-  formatter.run
+  puts 'Enter a sql query to format (processing starts after `;` or `\\G`:'
+  puts
+  puts
+
+  loop do
+    input << gets
+    break if input.strip.end_with?(';') || input.strip.end_with?('\\G')
+  end
 
   puts
   puts
-  puts formatter.formatted
-  puts
+  puts '>>>>>>'
 end
+
+formatter = SqlFormatter.new(input)
+formatter.run
+
+puts
+puts
+puts formatter.formatted
+puts
