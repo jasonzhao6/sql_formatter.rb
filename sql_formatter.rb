@@ -128,14 +128,14 @@ class SqlFormatter
 
     # Final flush
     concat_downcased_buffer(tokens, buffer)
+
+    tokens
   end
 
   def concat_downcased_buffer(tokens, buffer)
-    new_tokens = buffer.split.map do |token|
-      ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token
+    buffer.split.each do |token|
+      tokens << (ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token)
     end
-
-    tokens.concat(new_tokens)
   end
 
   def format(tokens)
