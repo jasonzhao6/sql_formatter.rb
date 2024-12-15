@@ -242,4 +242,20 @@ describe SqlFormatter do
       SQL
     end
   end
+
+  context 'when handling long `select`' do
+    let(:query) { 'select a, b, c, d;' }
+    it { should eq(expected) }
+
+    let(:expected) do
+      <<~SQL.chomp
+        select
+          a,
+          b,
+          c,
+          d
+        ;
+      SQL
+    end
+  end
 end

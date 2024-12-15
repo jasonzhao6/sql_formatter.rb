@@ -9,10 +9,14 @@ class SqlFormatter
   SEMICOLON = ';'
   SLASH_G = '\\G'
 
+  # Keywords with special formatting logic
+  SELECT = 'select'
+  FROM = 'from'
+
   # Formatting configurations
   INDENT = '  '
   NEW_LINE = "\n"
-  SELECT_TOEKN_LIMIT = 10 # Break `select` into multiple lines if over limit
+  SELECT_COMMA_LIMIT = 3 # Break `select` into multiple lines if over limit
   # TODO ^
 
   # When formatting, indent secondary keywords an extra time than primary, e.g
@@ -134,16 +138,20 @@ class SqlFormatter
     last_keyword = nil
     skip_next_space = false
 
-    tokens.each do |token|
+    # State for breaking long select into new lines
+    is_long_select = false
+
+    tokens.each.with_index do |token, index|
       indent_level -= 1 if PAREN_CLOSE == token
 
-      if skip_next_space
-        skip_next_space = false
+      if COMMA == token
         formatted << token
-      elsif COMMA == token
-        formatted << token
+        formatted << NEW_LINE << INDENT * (indent_level + 1) if is_long_select
       elsif PAREN_OPEN == token && !KEYWORDS_PRIMARY.include?(last_keyword) && !KEYWORDS_SECONDARY.include?(last_keyword)
+        formatted << token
         skip_next_space = true
+      elsif skip_next_space
+        skip_next_space = false
         formatted << token
       elsif PAREN_CLOSE == token && !KEYWORDS_PRIMARY.include?(paren_stack.last) && !KEYWORDS_SECONDARY.include?(paren_stack.last)
         formatted << token
@@ -151,11 +159,25 @@ class SqlFormatter
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif KEYWORDS_SECONDARY.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+      elsif is_long_select
+        formatted << token
       else
         formatted << ' ' << token
       end
 
       case token
+      when SELECT
+        comma_count = 0
+        (index...tokens.size).each do |next_index|
+          comma_count += 1 if COMMA == tokens[next_index]
+          break if FROM == tokens[next_index]
+        end
+
+        if comma_count >= SELECT_COMMA_LIMIT
+          is_long_select = true
+          formatted << NEW_LINE << INDENT * (indent_level + 1)
+        end
+      when FROM then is_long_select = false
       when PAREN_OPEN then paren_stack.push(last_keyword)
       when PAREN_CLOSE then paren_stack.pop
       end
