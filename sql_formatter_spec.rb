@@ -45,6 +45,25 @@ describe SqlFormatter do
     end
   end
 
+  context 'when handling semicolon' do
+    context 'when it has no preceding space' do
+      let(:query) { 'select a;' }
+      it { should eq("select a\n;") }
+    end
+
+    context 'when it has preceding space' do
+      context 'when outside of quotes' do
+        let(:query) { 'select a ;' }
+        it { should eq("select a\n;") }
+      end
+
+      context 'when inside of quotes' do
+        let(:query) { 'select "a ;"' }
+        it { should eq('select "a ;"') }
+      end
+    end
+  end
+
   context 'when handling operators' do
     context 'when there is one' do
       let(:query) { 'where id = 1' }
