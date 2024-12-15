@@ -26,40 +26,42 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling 1-char operator' do
-    context 'when it has preceding and succeeding spaces' do
-      let(:query) { 'where a = 1' }
-      it { should eq(query) }
-    end
-
-    context 'when it has no preceding and succeeding spaces' do
-      context 'when outside of quotes' do
-        let(:query) { 'where a=1' }
-        it { should eq('where a = 1') }
-      end
-
-      context 'when inside of quotes' do
-        let(:query) { 'select "a=1"' }
+  context 'when handling operator' do
+    context 'when operator has one char' do
+      context 'when it has preceding and succeeding spaces' do
+        let(:query) { 'where a = 1' }
         it { should eq(query) }
       end
-    end
-  end
 
-  context 'when handling 2-char operator' do
-    context 'when it has preceding and succeeding spaces' do
-      let(:query) { 'where a != 1' }
-      it { should eq(query) }
+      context 'when it has no preceding and succeeding spaces' do
+        context 'when outside of quotes' do
+          let(:query) { 'where a=1' }
+          it { should eq('where a = 1') }
+        end
+
+        context 'when inside of quotes' do
+          let(:query) { 'select "a=1"' }
+          it { should eq(query) }
+        end
+      end
     end
 
-    context 'when it has no preceding and succeeding spaces' do
-      context 'when outside of quotes' do
-        let(:query) { 'where a!=1' }
-        it { should eq('where a != 1') }
+    context 'when operator has two chars' do
+      context 'when it has preceding and succeeding spaces' do
+        let(:query) { 'where a != 1' }
+        it { should eq(query) }
       end
 
-      context 'when inside of quotes' do
-        let(:query) { 'select "a!=1"' }
-        it { should eq(query) }
+      context 'when it has no preceding and succeeding spaces' do
+        context 'when outside of quotes' do
+          let(:query) { 'where a!=1' }
+          it { should eq('where a != 1') }
+        end
+
+        context 'when inside of quotes' do
+          let(:query) { 'select "a!=1"' }
+          it { should eq(query) }
+        end
       end
     end
   end
