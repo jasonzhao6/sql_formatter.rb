@@ -245,12 +245,12 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling backtick, used to escape reserved words' do
+  context 'when handling backtick, used to escape reserved word' do
     let(:query) { 'select a, `group`, b' }
     it { should eq(query) }
   end
 
-  context 'when handling upper case keywords' do
+  context 'when handling upper case keyword' do
     let(:query) { 'SELECT 1;' }
     it { should eq(expected) }
 
@@ -294,5 +294,10 @@ describe SqlFormatter do
         SQL
       end
     end
+  end
+
+  context 'when handling new line' do
+    let(:query) { "select\na\n,\n\nb" }
+    it { should eq('select a, b') }
   end
 end
