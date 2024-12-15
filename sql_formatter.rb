@@ -7,6 +7,7 @@ class SqlFormatter
   PAREN_OPEN = '('
   QUOTES = %w(' ")
   SEMICOLON = ';'
+  SLASH_G = '\\G'
 
   # Formatting configurations
   INDENT = '  '
@@ -18,7 +19,7 @@ class SqlFormatter
   #  where key1 = 1 # `where` is a primary keyword
   #    and key2 = 2 # `and` is a secondary keyword
   #  ```
-  KEYWORDS_PRIMARY = %W(select from join where order #{SEMICOLON} \\G \))
+  KEYWORDS_PRIMARY = %W(select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE})
   KEYWORDS_SECONDARY = %w(on and or)
 
   attr_reader :tokens
@@ -76,6 +77,12 @@ class SqlFormatter
       elsif (COMMA == char || SEMICOLON == char) && open_quote.nil?
         tokens.concat(buffer.split)
         tokens << char
+        buffer = ''
+
+      # Treat slash-g as its own token
+      elsif 'G' == char && was_escape && open_quote.nil?
+        tokens.concat(buffer.chop.split)
+        tokens << SLASH_G
         buffer = ''
 
       # Pair up consecutive operators; they are always either singles or pairs

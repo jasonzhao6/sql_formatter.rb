@@ -64,6 +64,26 @@ describe SqlFormatter do
     end
   end
 
+  context 'when handling slash-g' do
+    context 'when it has no preceding space' do
+      let(:query) { 'select a\\G' }
+      it { should eq("select a\n\\G") }
+    end
+
+    context 'when it has preceding space' do
+      context 'when outside of quotes' do
+        let(:query) { 'select a \\G' }
+        it { should eq("select a\n\\G") }
+      end
+
+      context 'when inside of quotes' do
+        let(:query) { 'select "a \\G"' }
+        it { should eq('select "a \\G"') }
+      end
+    end
+  end
+
+  # TODO single operator with no preceding space; above comma handling
   context 'when handling operators' do
     context 'when there is one' do
       let(:query) { 'where id = 1' }
