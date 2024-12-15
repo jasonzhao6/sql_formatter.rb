@@ -68,7 +68,7 @@ class SqlFormatter
       if QUOTES.include?(char) && !was_escape && open_quote.nil?
         open_quote = char
 
-        tokens.concat(buffer.split)
+        concat_downcased_buffer(tokens, buffer)
         buffer = '' << char
 
       # Handle when switching from a quoted value to a non-quoted value
@@ -81,7 +81,7 @@ class SqlFormatter
 
       # Treat operator as its own tokens
       elsif OPERATORS.include?(char) && !was_operator && open_quote.nil?
-        tokens.concat(buffer.split)
+        concat_downcased_buffer(tokens, buffer)
         tokens << char
         buffer = ''
 
@@ -91,7 +91,7 @@ class SqlFormatter
 
       # Treat comma and semicolon as their own tokens
       elsif (COMMA == char || SEMICOLON == char) && open_quote.nil?
-        tokens.concat(buffer.split)
+        concat_downcased_buffer(tokens, buffer)
         tokens << char
         buffer = ''
 
@@ -103,7 +103,7 @@ class SqlFormatter
 
       # Treat open and close parentheses as their own tokens
       elsif (PAREN_OPEN == char || PAREN_CLOSE == char) && open_quote.nil?
-        tokens.concat(buffer.split)
+        concat_downcased_buffer(tokens, buffer)
         tokens << char
         buffer = ''
 
@@ -118,7 +118,11 @@ class SqlFormatter
     end
 
     # Final flush
-    tokens.concat(buffer.split)
+    concat_downcased_buffer(tokens, buffer)
+  end
+
+  def concat_downcased_buffer(tokens, buffer)
+    tokens.concat(buffer.downcase.split)
   end
 
   def format(tokens)

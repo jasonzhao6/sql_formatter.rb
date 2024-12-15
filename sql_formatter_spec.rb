@@ -230,4 +230,16 @@ describe SqlFormatter do
     let(:query) { 'select a, `group`, b' }
     it { should eq(query) }
   end
+
+  context 'when handling upper case keywords' do
+    let(:query) { 'SELECT 1;' }
+    it { should eq(expected) }
+
+    let(:expected) do
+      <<~SQL.chomp
+        select 1
+        ;
+      SQL
+    end
+  end
 end
