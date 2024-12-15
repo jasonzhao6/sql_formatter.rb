@@ -19,7 +19,9 @@ class SqlFormatter
   #  where key1 = 1 # `where` is a primary keyword
   #    and key2 = 2 # `and` is a secondary keyword
   #  ```
-  KEYWORDS_PRIMARY = %W(select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE})
+  KEYWORDS_PRIMARY = %W(
+    select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE}
+  )
   KEYWORDS_SECONDARY = %w(on and or)
 
   attr_reader :tokens
@@ -73,6 +75,16 @@ class SqlFormatter
         tokens << buffer
         buffer = ''
 
+      # Treat operator as its own tokens
+      elsif OPERATORS.include?(char) && !was_operator && open_quote.nil?
+        tokens.concat(buffer.split)
+        tokens << char
+        buffer = ''
+
+      # Pair up consecutive operators; they are always either 1-char or 2-chars
+      elsif OPERATORS.include?(char) && was_operator && open_quote.nil?
+        tokens.last << char
+
       # Treat comma and semicolon as their own tokens
       elsif (COMMA == char || SEMICOLON == char) && open_quote.nil?
         tokens.concat(buffer.split)
@@ -83,12 +95,6 @@ class SqlFormatter
       elsif 'G' == char && was_escape && open_quote.nil?
         tokens.concat(buffer.chop.split)
         tokens << SLASH_G
-        buffer = ''
-
-      # Pair up consecutive operators; they are always either singles or pairs
-      elsif OPERATORS.include?(char) && open_quote.nil? && was_operator
-        buffer << char
-        tokens.concat(buffer.split)
         buffer = ''
 
       # Add to buffer and wait for the next flush

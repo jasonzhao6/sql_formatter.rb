@@ -26,6 +26,44 @@ describe SqlFormatter do
     end
   end
 
+  context 'when handling 1-char operator' do
+    context 'when it has preceding and succeeding spaces' do
+      let(:query) { 'where a = 1' }
+      it { should eq('where a = 1') }
+    end
+
+    context 'when it has no preceding and succeeding spaces' do
+      context 'when outside of quotes' do
+        let(:query) { 'where a=1' }
+        it { should eq('where a = 1') }
+      end
+
+      context 'when inside of quotes' do
+        let(:query) { 'select "a=1"' }
+        it { should eq('select "a=1"') }
+      end
+    end
+  end
+
+  context 'when handling 2-char operator' do
+    context 'when it has preceding and succeeding spaces' do
+      let(:query) { 'where a != 1' }
+      it { should eq('where a != 1') }
+    end
+
+    context 'when it has no preceding and succeeding spaces' do
+      context 'when outside of quotes' do
+        let(:query) { 'where a!=1' }
+        it { should eq('where a != 1') }
+      end
+
+      context 'when inside of quotes' do
+        let(:query) { 'select "a!=1"' }
+        it { should eq('select "a!=1"') }
+      end
+    end
+  end
+
   context 'when handling comma' do
     context 'when it has no preceding space' do
       let(:query) { 'select a, b' }
@@ -80,19 +118,6 @@ describe SqlFormatter do
         let(:query) { 'select "a \\G"' }
         it { should eq('select "a \\G"') }
       end
-    end
-  end
-
-  # TODO single operator with no preceding space; above comma handling
-  context 'when handling operators' do
-    context 'when there is one' do
-      let(:query) { 'where id = 1' }
-      it { should eq('where id = 1') }
-    end
-
-    context 'when there are two' do
-      let(:query) { 'where id <> 1' }
-      it { should eq('where id <> 1') }
     end
   end
 
