@@ -32,4 +32,30 @@ describe SqlFormatter do
       end
     end
   end
+
+  context 'when handling operators' do
+    context 'when outside of quotes' do
+      context 'when there is one' do
+        let(:query) { 'where id = 1' }
+        it { should eq('where id = 1') }
+      end
+
+      context 'when there are two' do
+        let(:query) { 'where id <> 1' }
+        it { should eq('where id <> 1') }
+      end
+    end
+
+    context 'when inside of quotes' do
+      context 'when there is one' do
+        let(:query) { 'select "id = 1"' }
+        it { should eq('select "id = 1"') }
+      end
+
+      context 'when there are two' do
+        let(:query) { 'select "id <> 1"' }
+        it { should eq('select "id <> 1"') }
+      end
+    end
+  end
 end
