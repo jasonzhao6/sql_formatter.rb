@@ -1,5 +1,5 @@
 class SqlFormatter
-  # Characters with special handling
+  # Characters with special tokenizing logic
   COMMA = ','
   ESCAPE = '\\'
   OPERATORS = %w(! = < >)
@@ -13,11 +13,15 @@ class SqlFormatter
   INDENT = '  '
   NEW_LINE = "\n"
   SELECT_TOEKN_LIMIT = 10 # Break `select` into multiple lines if over limit
+  # TODO ^
 
   # When formatting, indent secondary keywords an extra time than primary, e.g
   #  ```
-  #  where key1 = 1 # `where` is a primary keyword
-  #    and key2 = 2 # `and` is a secondary keyword
+  #  from a            # `from` is a primary keyword
+  #  join b            # `join` is a primary keyword
+  #    on a.id = b.id  # `on` is a secondary keyword
+  #  where key1 = 1    # `where` is a primary keyword
+  #    and key2 = 2    # `and` is a secondary keyword
   #  ```
   KEYWORDS_PRIMARY = %W(
     select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE}
@@ -46,7 +50,7 @@ class SqlFormatter
   def tokenize(query)
     tokens = [] # Return value
 
-    # Keep track of open quotes and treat the entire quoted value as one token
+    # Keep track of an open quote and treat the entire quoted value as one token
     open_quote = nil # Valid states: %w(nil ' ")
 
     # These characters influence how the next character will be handled

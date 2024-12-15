@@ -123,7 +123,7 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling new lines and indentations' do
+  context 'when handling keywords' do
     context 'when there is only primary keywords' do
       let(:query) { 'select * from a join b where a.id = 1 order by 1;' }
       it { should eq(expected) }
@@ -140,7 +140,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when there are also secondary keywords' do
+    context 'when there are both primary and secondary keywords' do
       let(:query) { 'select * from a join b on a.id = b.id where a.id = 1 and a.id != 2 or a.id = 3 order by 1;' }
       it { should eq(expected) }
 
@@ -158,6 +158,7 @@ describe SqlFormatter do
         SQL
       end
     end
+  end
 
     context 'when there is one level of parenthesis' do
       let(:query) { 'select * from (select * from a); ' }
