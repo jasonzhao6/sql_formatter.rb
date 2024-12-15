@@ -58,4 +58,22 @@ describe SqlFormatter do
       end
     end
   end
+
+  context 'when handling new lines and indentations' do
+    context 'when there is only primary keywords' do
+      let(:query) { 'select * from a join b where a.id = 1 order by 1;' }
+      it { should eq(expected) }
+
+      let(:expected) do
+        <<~SQL.chomp
+          select *
+          from a
+          join b
+          where a.id = 1
+          order by 1
+          ;
+        SQL
+      end
+    end
+  end
 end
