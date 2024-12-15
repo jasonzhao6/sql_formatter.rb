@@ -123,22 +123,41 @@ class SqlFormatter
 
   def format(tokens)
     formatted = '' # Return value
-    indent_level = 0 # Increments right after `(`; decrements right before `)`
+
+    # States for parenthesis handling
+    indent_level = 0 # Increments after `(`; decrements before `)`
+    paren_stack = [] # Push after `(`; pop after `)`
+    last_keyword = nil
+    skip_next_space = false
 
     tokens.each do |token|
       indent_level -= 1 if PAREN_CLOSE == token
 
-      if KEYWORDS_PRIMARY.include?(token)
+      if skip_next_space
+        skip_next_space = false
+        formatted << token
+      elsif COMMA == token
+        formatted << token
+      elsif PAREN_OPEN == token && !KEYWORDS_PRIMARY.include?(last_keyword) && !KEYWORDS_SECONDARY.include?(last_keyword)
+        skip_next_space = true
+        formatted << token
+      elsif PAREN_CLOSE == token && !KEYWORDS_PRIMARY.include?(paren_stack.last) && !KEYWORDS_SECONDARY.include?(paren_stack.last)
+        formatted << token
+      elsif KEYWORDS_PRIMARY.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif KEYWORDS_SECONDARY.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
-      elsif (COMMA == token || SEMICOLON == token)
-        formatted << token
       else
         formatted << ' ' << token
       end
 
+      case token
+      when PAREN_OPEN then paren_stack.push(last_keyword)
+      when PAREN_CLOSE then paren_stack.pop
+      end
+
       indent_level += 1 if PAREN_OPEN == token
+      last_keyword = token
     end
 
     formatted.strip

@@ -160,38 +160,56 @@ describe SqlFormatter do
     end
   end
 
-    context 'when there is one level of parenthesis' do
-      let(:query) { 'select * from (select * from a); ' }
-      it { should eq(expected) }
+  context 'when handling parenthesis' do
+    context 'when it creates new line' do
+      context 'when there is one level' do
+        let(:query) { 'select * from (select * from a); ' }
+        it { should eq(expected) }
 
-      let(:expected) do
-        <<~SQL.chomp
-          select *
-          from (
-            select *
-            from a
-          )
-          ;
-        SQL
-      end
-    end
-
-    context 'when there are two levels of parenthesis' do
-      let(:query) { 'select * from (select * from (select * from a)); ' }
-      it { should eq(expected) }
-
-      let(:expected) do
-        <<~SQL.chomp
-          select *
-          from (
+        let(:expected) do
+          <<~SQL.chomp
             select *
             from (
               select *
               from a
             )
-          )
-          ;
-        SQL
+            ;
+          SQL
+        end
+      end
+
+      context 'when there are two levels' do
+        let(:query) { 'select * from (select * from (select * from a)); ' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from (
+              select *
+              from (
+                select *
+                from a
+              )
+            )
+            ;
+          SQL
+        end
+      end
+    end
+
+    context 'when it does not create new line' do
+      context 'when handling function call' do
+        let(:query) { 'select distinct(`group`) from sysconfig;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select distinct(`group`)
+            from sysconfig
+            ;
+          SQL
+        end
       end
     end
   end
