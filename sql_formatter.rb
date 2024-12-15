@@ -218,7 +218,7 @@ input = ARGV.join(' ')
 
 # If no argument, enter into interactive mode
 if ARGV.empty?
-  puts 'Enter a sql query to format (processing starts after `;` or `\\G`:'
+  puts 'Enter a sql query (formatting starts after `;` or `\\G`):'
   puts
   puts
 
