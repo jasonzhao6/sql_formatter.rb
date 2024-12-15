@@ -137,13 +137,14 @@ class SqlFormatter
     last_keyword = nil
     skip_next_space = false
 
-    # States for breaking long select into new lines
+    # States for long `select` handling
     is_long_select = false
     is_new_column = false
 
     tokens.each.with_index do |token, index|
-      indent_level -= 1 if PAREN_CLOSE == token
+      indent_level -= 1 if PAREN_CLOSE == token && (KEYWORDS_PRIMARY.include?(paren_stack.last) || KEYWORDS_SECONDARY.include?(paren_stack.last))
 
+      # Add `token` to formatted return value
       if skip_next_space
         skip_next_space = false
         formatted << token
@@ -168,6 +169,7 @@ class SqlFormatter
         formatted << ' ' << token
       end
 
+      # Set states for parenthesis and long `select` handling
       case token
       when SELECT
         comma_count = 0
@@ -186,7 +188,7 @@ class SqlFormatter
       when PAREN_CLOSE then paren_stack.pop
       end
 
-      indent_level += 1 if PAREN_OPEN == token
+      indent_level += 1 if PAREN_OPEN == token && (KEYWORDS_PRIMARY.include?(last_keyword) || KEYWORDS_SECONDARY.include?(last_keyword))
       last_keyword = token
     end
 
