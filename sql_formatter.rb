@@ -35,6 +35,9 @@ class SqlFormatter
   # When formatting, if these keywords precede `PAREN_OPEN`, update indent level
   INDENT_KEYWORDS = %w(from in)
 
+  # When formatting, downcase all keywords
+  ALL_KEYWORDS = (PRIMARY_KEYWORDS + SECONDARY_KEYWORDS + INDENT_KEYWORDS).uniq
+
   attr_reader :tokens
   attr_reader :formatted
 
@@ -129,7 +132,11 @@ class SqlFormatter
   end
 
   def concat_downcased_buffer(tokens, buffer)
-    tokens.concat(buffer.downcase.split)
+    new_tokens = buffer.split.map do |token|
+      ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token
+    end
+
+    tokens.concat(new_tokens)
   end
 
   def format(tokens)

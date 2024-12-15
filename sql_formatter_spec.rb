@@ -252,13 +252,14 @@ describe SqlFormatter do
     it { should eq(query) }
   end
 
-  context 'when handling upper case keyword' do
-    let(:query) { 'SELECT 1;' }
+  context 'when handling upper case keywords' do
+    let(:query) { 'SELECT 1 FROM A;' }
     it { should eq(expected) }
 
     let(:expected) do
       <<~SQL.chomp
         select 1
+        from A
         ;
       SQL
     end
