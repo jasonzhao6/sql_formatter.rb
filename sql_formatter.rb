@@ -158,11 +158,11 @@ class SqlFormatter
       elsif is_long_select && is_new_column
         is_new_column = false
         formatted << token
-      elsif COMMA == token && !is_long_select
-        formatted << token
       elsif COMMA == token && is_long_select
         is_new_column = true
         formatted << token << NEW_LINE << INDENT * (indent_level + 1)
+      elsif COMMA == token && !is_long_select
+        formatted << token
       elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_keyword)
         skip_next_space = true
         formatted << token
