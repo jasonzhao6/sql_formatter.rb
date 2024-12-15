@@ -17,7 +17,6 @@ class SqlFormatter
   INDENT = '  '
   NEW_LINE = "\n"
   SELECT_COMMA_LIMIT = 3 # Break `select` into multiple lines if over limit
-  # TODO ^
 
   # When formatting, indent secondary keywords an extra time than primary, e.g
   #  ```
@@ -138,20 +137,26 @@ class SqlFormatter
     last_keyword = nil
     skip_next_space = false
 
-    # State for breaking long select into new lines
+    # States for breaking long select into new lines
     is_long_select = false
+    is_new_column = false
 
     tokens.each.with_index do |token, index|
       indent_level -= 1 if PAREN_CLOSE == token
 
-      if COMMA == token
-        formatted << token
-        formatted << NEW_LINE << INDENT * (indent_level + 1) if is_long_select
-      elsif PAREN_OPEN == token && !KEYWORDS_PRIMARY.include?(last_keyword) && !KEYWORDS_SECONDARY.include?(last_keyword)
-        formatted << token
-        skip_next_space = true
-      elsif skip_next_space
+      if skip_next_space
         skip_next_space = false
+        formatted << token
+      elsif is_long_select && is_new_column
+        is_new_column = false
+        formatted << token
+      elsif COMMA == token && !is_long_select
+        formatted << token
+      elsif COMMA == token && is_long_select
+        is_new_column = true
+        formatted << token << NEW_LINE << INDENT * (indent_level + 1)
+      elsif PAREN_OPEN == token && !KEYWORDS_PRIMARY.include?(last_keyword) && !KEYWORDS_SECONDARY.include?(last_keyword)
+        skip_next_space = true
         formatted << token
       elsif PAREN_CLOSE == token && !KEYWORDS_PRIMARY.include?(paren_stack.last) && !KEYWORDS_SECONDARY.include?(paren_stack.last)
         formatted << token
@@ -159,8 +164,6 @@ class SqlFormatter
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif KEYWORDS_SECONDARY.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
-      elsif is_long_select
-        formatted << token
       else
         formatted << ' ' << token
       end
@@ -175,6 +178,7 @@ class SqlFormatter
 
         if comma_count >= SELECT_COMMA_LIMIT
           is_long_select = true
+          is_new_column = true
           formatted << NEW_LINE << INDENT * (indent_level + 1)
         end
       when FROM then is_long_select = false

@@ -244,18 +244,36 @@ describe SqlFormatter do
   end
 
   context 'when handling long `select`' do
-    let(:query) { 'select a, b, c, d;' }
-    it { should eq(expected) }
+    context 'when there is no alias' do
+      let(:query) { 'select a, b, c, d;' }
+      it { should eq(expected) }
 
-    let(:expected) do
-      <<~SQL.chomp
-        select
-          a,
-          b,
-          c,
-          d
-        ;
-      SQL
+      let(:expected) do
+        <<~SQL.chomp
+          select
+            a,
+            b,
+            c,
+            d
+          ;
+        SQL
+      end
+    end
+
+    context 'when there is alias' do
+      let(:query) { 'select a as aa, b as bb, c as cc, d as dd;' }
+      it { should eq(expected) }
+
+      let(:expected) do
+        <<~SQL.chomp
+          select
+            a as aa,
+            b as bb,
+            c as cc,
+            d as dd
+          ;
+        SQL
+      end
     end
   end
 end
