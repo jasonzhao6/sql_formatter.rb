@@ -1,6 +1,10 @@
 require './sql_formatter'
 require 'rspec'
 
+RSpec.configure do |config|
+  config.filter_run_when_matching :focus
+end
+
 describe SqlFormatter do
   let(:query) { '<overwrite me in examples>' }
   let(:formatter) { described_class.new(query) }
@@ -302,5 +306,21 @@ describe SqlFormatter do
   context 'when handling new line' do
     let(:query) { "select\na\n,\n\nb" }
     it { should eq('select a, b') }
+  end
+
+  fcontext 'when handling multi-word join' do
+    context 'when left join' do
+      let(:query) { 'select a.id from a left join b;' }
+      it { should eq(expected) }
+
+      let(:expected) do
+        <<~SQL.chomp
+          select a.id
+          from a
+          left join b
+          ;
+        SQL
+      end
+    end
   end
 end
