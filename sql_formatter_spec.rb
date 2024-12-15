@@ -199,7 +199,7 @@ describe SqlFormatter do
     end
 
     context 'when it does not create new line' do
-      context 'when handling function call' do
+      context 'when there is a function call' do
         let(:query) { 'select distinct(`group`) from sysconfig;' }
         it { should eq(expected) }
 
@@ -207,6 +207,18 @@ describe SqlFormatter do
           <<~SQL.chomp
             select distinct(`group`)
             from sysconfig
+            ;
+          SQL
+        end
+      end
+
+      context 'when there is nested function calls' do
+        let(:query) { "select upper(concat('hello', ' ', 'world'));" }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select upper(concat('hello', ' ', 'world'))
             ;
           SQL
         end
