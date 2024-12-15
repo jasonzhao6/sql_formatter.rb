@@ -26,13 +26,12 @@ class SqlFormatter
   #  where key1 = 1    # `where` is a primary keyword
   #    and key2 = 2    # `and` is a secondary keyword
   #  ```
-  KEYWORDS_PRIMARY = %W(
-    select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE}
-  )
-  KEYWORDS_SECONDARY = %w(on and or)
+  PRIMARY_KEYWORDS =
+    %W(select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE})
+  SECONDARY_KEYWORDS = %w(on and or)
 
-  # When formatting, if keywords precede parens, update indent level
-  KEYWORDS_UPDATE_INDENT = %w(from in)
+  # When formatting, if these keywords precede `PAREN_OPEN`, update indent level
+  INDENT_KEYWORDS = %w(from in)
 
   attr_reader :tokens
   attr_reader :formatted
@@ -134,7 +133,7 @@ class SqlFormatter
   def format(tokens)
     formatted = '' # Return value
 
-    # States for parenthesis handling
+    # States for parentheses handling
     indent_level = 0 # Increments after `(`; decrements before `)`
     paren_stack = [] # Push after `(`; pop after `)`
     last_keyword = nil
@@ -145,7 +144,10 @@ class SqlFormatter
     is_new_column = false
 
     tokens.each.with_index do |token, index|
-      indent_level -= 1 if PAREN_CLOSE == token && KEYWORDS_UPDATE_INDENT.include?(paren_stack.last)
+      # Decrement `indent_level` before adding `)` to formatted return value
+      if PAREN_CLOSE == token && INDENT_KEYWORDS.include?(paren_stack.last)
+        indent_level -= 1
+      end
 
       # Add `token` to formatted return value
       if skip_next_space
@@ -159,20 +161,32 @@ class SqlFormatter
       elsif COMMA == token && is_long_select
         is_new_column = true
         formatted << token << NEW_LINE << INDENT * (indent_level + 1)
-      elsif PAREN_OPEN == token && !KEYWORDS_UPDATE_INDENT.include?(last_keyword)
+      elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_keyword)
         skip_next_space = true
         formatted << token
-      elsif PAREN_CLOSE == token && !KEYWORDS_UPDATE_INDENT.include?(paren_stack.last)
+      elsif PAREN_CLOSE == token && !INDENT_KEYWORDS.include?(paren_stack.last)
         formatted << token
-      elsif KEYWORDS_PRIMARY.include?(token)
+      elsif PRIMARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
-      elsif KEYWORDS_SECONDARY.include?(token)
+      elsif SECONDARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
       else
         formatted << ' ' << token
       end
 
-      # Set states for parenthesis and long `select` handling
+      # Increments `indent_level` after adding `(` to formatted return value
+      if PAREN_OPEN == token && INDENT_KEYWORDS.include?(last_keyword)
+        indent_level += 1
+      end
+
+      # Set states for parentheses handling
+      case token
+      when PAREN_OPEN then paren_stack.push(last_keyword)
+      when PAREN_CLOSE then paren_stack.pop
+      end
+      last_keyword = token
+
+      # Set states for long `select` handling
       case token
       when SELECT
         comma_count = 0
@@ -187,12 +201,7 @@ class SqlFormatter
           formatted << NEW_LINE << INDENT * (indent_level + 1)
         end
       when FROM then is_long_select = false
-      when PAREN_OPEN then paren_stack.push(last_keyword)
-      when PAREN_CLOSE then paren_stack.pop
       end
-
-      indent_level += 1 if PAREN_OPEN == token && KEYWORDS_UPDATE_INDENT.include?(last_keyword)
-      last_keyword = token
     end
 
     formatted.strip
