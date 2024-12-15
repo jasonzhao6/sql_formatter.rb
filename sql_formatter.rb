@@ -117,15 +117,3 @@ class SqlFormatter
     formatted.strip
   end
 end
-
-# query = "select t.createdTime, tt.token, t.id\nfrom tranlog t join tranlog_token tt on t.id = tt.tranlog where cardHolder = 570824 and amount = 18.94 order by 1, 2 ;"
-# query = "select *"
-# query = ARGV.join(' ') unless ARGV.empty?
-# formatter = SqlFormatter.new(query)
-# formatter.run
-#
-# puts query
-# puts
-# puts formatter.tokens
-# puts
-# puts formatter.formatted

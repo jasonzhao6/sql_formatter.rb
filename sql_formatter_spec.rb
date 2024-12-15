@@ -75,5 +75,24 @@ describe SqlFormatter do
         SQL
       end
     end
+
+    context 'when there are also secondary keywords' do
+      let(:query) { 'select * from a join b on a.id = b.id where a.id = 1 and a.id != 2 or a.id = 3 order by 1\\G' }
+      it { should eq(expected) }
+
+      let(:expected) do
+        <<~SQL.chomp
+          select *
+          from a
+          join b
+            on a.id = b.id
+          where a.id = 1
+            and a.id != 2
+            or a.id = 3
+          order by 1
+          \\G
+        SQL
+      end
+    end
   end
 end
