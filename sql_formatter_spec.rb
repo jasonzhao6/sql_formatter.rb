@@ -10,7 +10,7 @@ describe SqlFormatter do
   context 'when handling space' do
     context 'when there is a single space' do
       let(:query) { 'select a' }
-      it { should eq('select a') }
+      it { should eq(query) }
     end
 
     context 'when there are consecutive spaces' do
@@ -21,7 +21,7 @@ describe SqlFormatter do
 
       context 'when inside of quotes' do
         let(:query) { 'select "a  b"' }
-        it { should eq('select "a  b"') }
+        it { should eq(query) }
       end
     end
   end
@@ -29,7 +29,7 @@ describe SqlFormatter do
   context 'when handling 1-char operator' do
     context 'when it has preceding and succeeding spaces' do
       let(:query) { 'where a = 1' }
-      it { should eq('where a = 1') }
+      it { should eq(query) }
     end
 
     context 'when it has no preceding and succeeding spaces' do
@@ -40,7 +40,7 @@ describe SqlFormatter do
 
       context 'when inside of quotes' do
         let(:query) { 'select "a=1"' }
-        it { should eq('select "a=1"') }
+        it { should eq(query) }
       end
     end
   end
@@ -48,7 +48,7 @@ describe SqlFormatter do
   context 'when handling 2-char operator' do
     context 'when it has preceding and succeeding spaces' do
       let(:query) { 'where a != 1' }
-      it { should eq('where a != 1') }
+      it { should eq(query) }
     end
 
     context 'when it has no preceding and succeeding spaces' do
@@ -59,7 +59,7 @@ describe SqlFormatter do
 
       context 'when inside of quotes' do
         let(:query) { 'select "a!=1"' }
-        it { should eq('select "a!=1"') }
+        it { should eq(query) }
       end
     end
   end
@@ -67,7 +67,7 @@ describe SqlFormatter do
   context 'when handling comma' do
     context 'when it has no preceding space' do
       let(:query) { 'select a, b' }
-      it { should eq('select a, b') }
+      it { should eq(query) }
     end
 
     context 'when it has preceding space' do
@@ -78,7 +78,7 @@ describe SqlFormatter do
 
       context 'when inside of quotes' do
         let(:query) { 'select "a , b"' }
-        it { should eq('select "a , b"') }
+        it { should eq(query) }
       end
     end
   end
@@ -97,7 +97,7 @@ describe SqlFormatter do
 
       context 'when inside of quotes' do
         let(:query) { 'select "a ;"' }
-        it { should eq('select "a ;"') }
+        it { should eq(query) }
       end
     end
   end
@@ -116,7 +116,7 @@ describe SqlFormatter do
 
       context 'when inside of quotes' do
         let(:query) { 'select "a \\G"' }
-        it { should eq('select "a \\G"') }
+        it { should eq(query) }
       end
     end
   end
