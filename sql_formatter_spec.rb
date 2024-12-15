@@ -161,36 +161,55 @@ describe SqlFormatter do
   end
 
   context 'when handling parenthesis' do
-    context 'when it creates new line' do
-      context 'when there is one level' do
-        let(:query) { 'select * from (select * from a); ' }
-        it { should eq(expected) }
+    context 'when it updates indent level' do
+      context 'when it is after `from`' do
+        context 'when there is one level' do
+          let(:query) { 'select * from (select * from a); ' }
+          it { should eq(expected) }
 
-        let(:expected) do
-          <<~SQL.chomp
-            select *
-            from (
-              select *
-              from a
-            )
-            ;
-          SQL
-        end
-      end
-
-      context 'when there are two levels' do
-        let(:query) { 'select * from (select * from (select * from a)); ' }
-        it { should eq(expected) }
-
-        let(:expected) do
-          <<~SQL.chomp
-            select *
-            from (
+          let(:expected) do
+            <<~SQL.chomp
               select *
               from (
                 select *
                 from a
               )
+              ;
+            SQL
+          end
+        end
+
+        context 'when there are two levels' do
+          let(:query) { 'select * from (select * from (select * from a)); ' }
+          it { should eq(expected) }
+
+          let(:expected) do
+            <<~SQL.chomp
+              select *
+              from (
+                select *
+                from (
+                  select *
+                  from a
+                )
+              )
+              ;
+            SQL
+          end
+        end
+      end
+
+      context 'when it is after `in`' do
+        let(:query) { 'select * from a where id in (select id from b);' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where id in (
+              select id
+              from b
             )
             ;
           SQL
@@ -198,7 +217,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when it does not create new line' do
+    context 'when it does not update indent level' do
       context 'when there is a function call' do
         let(:query) { 'select distinct(`group`) from sysconfig;' }
         it { should eq(expected) }
@@ -212,7 +231,7 @@ describe SqlFormatter do
         end
       end
 
-      context 'when there is nested function calls' do
+      context 'when there are nested function calls' do
         let(:query) { "select upper(concat('hello', ' ', 'world'));" }
         it { should eq(expected) }
 

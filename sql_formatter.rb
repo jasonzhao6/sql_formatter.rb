@@ -18,7 +18,7 @@ class SqlFormatter
   NEW_LINE = "\n"
   SELECT_COMMA_LIMIT = 3 # Break `select` into multiple lines if over limit
 
-  # When formatting, indent secondary keywords an extra time than primary, e.g
+  # When formatting, indent secondary keywords an extra level than primary, e.g
   #  ```
   #  from a            # `from` is a primary keyword
   #  join b            # `join` is a primary keyword
@@ -30,6 +30,9 @@ class SqlFormatter
     select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE}
   )
   KEYWORDS_SECONDARY = %w(on and or)
+
+  # When formatting, if keywords precede parens, update indent level
+  KEYWORDS_UPDATE_INDENT = %w(from in)
 
   attr_reader :tokens
   attr_reader :formatted
@@ -142,7 +145,7 @@ class SqlFormatter
     is_new_column = false
 
     tokens.each.with_index do |token, index|
-      indent_level -= 1 if PAREN_CLOSE == token && (KEYWORDS_PRIMARY.include?(paren_stack.last) || KEYWORDS_SECONDARY.include?(paren_stack.last))
+      indent_level -= 1 if PAREN_CLOSE == token && KEYWORDS_UPDATE_INDENT.include?(paren_stack.last)
 
       # Add `token` to formatted return value
       if skip_next_space
@@ -156,10 +159,10 @@ class SqlFormatter
       elsif COMMA == token && is_long_select
         is_new_column = true
         formatted << token << NEW_LINE << INDENT * (indent_level + 1)
-      elsif PAREN_OPEN == token && !KEYWORDS_PRIMARY.include?(last_keyword) && !KEYWORDS_SECONDARY.include?(last_keyword)
+      elsif PAREN_OPEN == token && !KEYWORDS_UPDATE_INDENT.include?(last_keyword)
         skip_next_space = true
         formatted << token
-      elsif PAREN_CLOSE == token && !KEYWORDS_PRIMARY.include?(paren_stack.last) && !KEYWORDS_SECONDARY.include?(paren_stack.last)
+      elsif PAREN_CLOSE == token && !KEYWORDS_UPDATE_INDENT.include?(paren_stack.last)
         formatted << token
       elsif KEYWORDS_PRIMARY.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
@@ -188,7 +191,7 @@ class SqlFormatter
       when PAREN_CLOSE then paren_stack.pop
       end
 
-      indent_level += 1 if PAREN_OPEN == token && (KEYWORDS_PRIMARY.include?(last_keyword) || KEYWORDS_SECONDARY.include?(last_keyword))
+      indent_level += 1 if PAREN_OPEN == token && KEYWORDS_UPDATE_INDENT.include?(last_keyword)
       last_keyword = token
     end
 
