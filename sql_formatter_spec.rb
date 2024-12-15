@@ -247,7 +247,7 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling backtick, used to escape reserved word' do
+  context 'when handling backtick' do
     let(:query) { 'select a, `group`, b' }
     it { should eq(query) }
   end
