@@ -166,7 +166,7 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling parenthesis' do
+  context 'when handling parentheses' do
     context 'when it updates indent level' do
       context 'when it is after `from`' do
         context 'when there is one level' do
@@ -308,7 +308,7 @@ describe SqlFormatter do
     it { should eq('select a, b') }
   end
 
-  fcontext 'when handling multi-word join' do
+  context 'when handling multi-word join' do
     context 'when left join' do
       let(:query) { 'select a.id from a left join b;' }
       it { should eq(expected) }
@@ -318,6 +318,20 @@ describe SqlFormatter do
           select a.id
           from a
           left join b
+          ;
+        SQL
+      end
+    end
+
+    context 'when full outer join' do
+      let(:query) { 'select a.id from a full outer join b;' }
+      it { should eq(expected) }
+
+      let(:expected) do
+        <<~SQL.chomp
+          select a.id
+          from a
+          full outer join b
           ;
         SQL
       end

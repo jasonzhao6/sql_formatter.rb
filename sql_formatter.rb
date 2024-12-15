@@ -72,7 +72,7 @@ class SqlFormatter
     # Flush also happens after `OPERATORS`, `COMMA`, `SLASH_G`, etc
     buffer = ''
 
-    # Add `char` to `buffer`, then flush `buffer` to `tokens`
+    # Accumulate `char` in `buffer`, then flush `buffer` to `tokens`
     query.chars.each do |char|
       # Handle when switching from a non-quoted value to a quoted value
       if QUOTES.include?(char) && ESCAPE != last_char && open_quote.nil?
@@ -89,7 +89,7 @@ class SqlFormatter
         tokens << buffer
         buffer = ''
 
-      # Treat operator as its own tokens
+      # Treat operator as its own token
       elsif OPERATORS.include?(char) && !OPERATORS.include?(last_char) && open_quote.nil?
         concat_downcased_buffer(tokens, buffer)
         tokens << char
@@ -117,7 +117,7 @@ class SqlFormatter
         tokens << char
         buffer = ''
 
-      # Add to buffer and wait for the next flush
+      # Accumulate in buffer and wait for the next flush
       else
         buffer << char
       end
@@ -141,8 +141,8 @@ class SqlFormatter
   def format(tokens)
     formatted = '' # Return value
 
-    # Remember the last keyword, which can influence the next one's handling
-    last_keyword = nil
+    # Remember the last token, which can influence the next one's handling
+    last_token = nil
 
     # States for handling parentheses
     paren_stack = [] # Push after `(`; pop after `)`
@@ -166,10 +166,10 @@ class SqlFormatter
         formatted << token << NEW_LINE << INDENT * (indent_level + 1)
       elsif COMMA == token && !one_column_per_line
         formatted << token
-      elsif PAREN_OPEN == token && INDENT_KEYWORDS.include?(last_keyword)
+      elsif PAREN_OPEN == token && INDENT_KEYWORDS.include?(last_token)
         indent_level += 1
         formatted << ' ' << token
-      elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_keyword)
+      elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_token)
         skip_space_after_open_paren = true
         formatted << token
       elsif PAREN_CLOSE == token && INDENT_KEYWORDS.include?(paren_stack.last)
@@ -177,7 +177,8 @@ class SqlFormatter
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif PAREN_CLOSE == token && !INDENT_KEYWORDS.include?(paren_stack.last)
         formatted << token
-      # elsif JOIN_KEYWORDS.include?(token)
+      elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
+        formatted << ' ' << token
       elsif PRIMARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif SECONDARY_KEYWORDS.include?(token)
@@ -188,7 +189,7 @@ class SqlFormatter
 
       # Set states for handling parentheses
       case token
-      when PAREN_OPEN then paren_stack.push(last_keyword)
+      when PAREN_OPEN then paren_stack.push(last_token)
       when PAREN_CLOSE then paren_stack.pop
       end
 
@@ -209,8 +210,8 @@ class SqlFormatter
       when FROM then one_column_per_line = false
       end
 
-      # Remember the last keyword, which can influence the next one's handling
-      last_keyword = token
+      # Remember the last token, which can influence the next one's handling
+      last_token = token
     end
 
     formatted.strip
