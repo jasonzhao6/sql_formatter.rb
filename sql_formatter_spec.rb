@@ -125,15 +125,17 @@ describe SqlFormatter do
 
   context 'when handling keywords' do
     context 'when there is only primary keywords' do
-      let(:query) { 'select * from a join b where a.id = 1 order by 1;' }
+      let(:query) { 'select a.id from a join b where b.id = 1 union select 1 id order by 1;' }
       it { should eq(expected) }
 
       let(:expected) do
         <<~SQL.chomp
-          select *
+          select a.id
           from a
           join b
-          where a.id = 1
+          where b.id = 1
+          union
+          select 1 id
           order by 1
           ;
         SQL

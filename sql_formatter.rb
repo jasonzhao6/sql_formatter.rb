@@ -26,8 +26,10 @@ class SqlFormatter
   #  where key1 = 1    # `where` is a primary keyword
   #    and key2 = 2    # `and` is a secondary keyword
   #  ```
-  PRIMARY_KEYWORDS =
-    %W(select from join where order #{SEMICOLON} #{SLASH_G} #{PAREN_CLOSE})
+  PRIMARY_KEYWORDS = %W(
+    select from join where order union
+    #{PAREN_CLOSE} #{SEMICOLON} #{SLASH_G}
+  )
   SECONDARY_KEYWORDS = %w(on and or)
 
   # When formatting, if these keywords precede `PAREN_OPEN`, update indent level
