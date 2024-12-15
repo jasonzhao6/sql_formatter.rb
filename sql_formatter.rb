@@ -6,6 +6,7 @@ class SqlFormatter
   PAREN_CLOSE = ')'
   PAREN_OPEN = '('
   QUOTES = %w(' ")
+  SEMICOLON = ';'
 
   # Formatting configurations
   INDENT = '  '
@@ -17,7 +18,7 @@ class SqlFormatter
   #  where key1 = 1 # `where` is a primary keyword
   #    and key2 = 2 # `and` is a secondary keyword
   #  ```
-  KEYWORDS_PRIMARY = %w(select from join where order ; \\G \))
+  KEYWORDS_PRIMARY = %W(select from join where order #{SEMICOLON} \\G \))
   KEYWORDS_SECONDARY = %w(on and or)
 
   attr_reader :tokens
@@ -71,8 +72,8 @@ class SqlFormatter
         tokens << buffer
         buffer = ''
 
-      # Treat comma as its own token
-      elsif COMMA == char && open_quote.nil?
+      # Treat comma and semicolon as their own tokens
+      elsif (COMMA == char || SEMICOLON == char) && open_quote.nil?
         tokens.concat(buffer.split)
         tokens << char
         buffer = ''
@@ -106,7 +107,7 @@ class SqlFormatter
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif KEYWORDS_SECONDARY.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
-      elsif COMMA == token
+      elsif (COMMA == token || SEMICOLON == token)
         formatted << token
       else
         formatted << ' ' << token
