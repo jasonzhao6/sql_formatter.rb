@@ -59,29 +59,30 @@ class SqlFormatter
   def tokenize(query)
     tokens = [] # Return value
 
-    # Keep track of an open quote and treat the entire quoted value as one token
+    # Remember the last character, which can influence the next one's handling
+    last_char = nil
+
+    # Keep track of open quote and treat the entire quoted value as one token
     open_quote = nil # Valid states: %w(nil ' ")
 
-    # These characters influence how the next character will be handled
-    was_escape = false # Escape the next character
-    was_operator = false # Pair up consecutive operators, e.g `!=`
-
-    # Holds either a non-quoted value until the next quoted value or vice versa
-    # When switching between the two, the buffer is flushed and process like so:
+    # Holds a non-quoted value until the next quoted value, and vice versa
+    # When switching between the two, flush and process as follows:
     # - Non-quoted values are tokenized by splitting on whitespace
     # - The entirety of a quoted value is treated as a whole token
+    # Flush also happens after `OPERATORS`, `COMMA`, `SLASH_G`, etc
     buffer = ''
 
+    # Add `char` to `buffer`, then flush `buffer` to `tokens`
     query.chars.each do |char|
       # Handle when switching from a non-quoted value to a quoted value
-      if QUOTES.include?(char) && !was_escape && open_quote.nil?
+      if QUOTES.include?(char) && ESCAPE != last_char && open_quote.nil?
         open_quote = char
 
         concat_downcased_buffer(tokens, buffer)
         buffer = '' << char
 
       # Handle when switching from a quoted value to a non-quoted value
-      elsif QUOTES.include?(char) && !was_escape && open_quote == char
+      elsif QUOTES.include?(char) && ESCAPE != last_char && open_quote == char
         open_quote = nil
 
         buffer << char
@@ -89,13 +90,13 @@ class SqlFormatter
         buffer = ''
 
       # Treat operator as its own tokens
-      elsif OPERATORS.include?(char) && !was_operator && open_quote.nil?
+      elsif OPERATORS.include?(char) && !OPERATORS.include?(last_char) && open_quote.nil?
         concat_downcased_buffer(tokens, buffer)
         tokens << char
         buffer = ''
 
       # Pair up consecutive operators; they are always either 1-char or 2-chars
-      elsif OPERATORS.include?(char) && was_operator && open_quote.nil?
+      elsif OPERATORS.include?(char) && OPERATORS.include?(last_char) && open_quote.nil?
         tokens.last << char
 
       # Treat comma and semicolon as their own tokens
@@ -105,7 +106,7 @@ class SqlFormatter
         buffer = ''
 
       # Treat slash-g as its own token
-      elsif 'G' == char && was_escape && open_quote.nil?
+      elsif 'G' == char && ESCAPE == last_char && open_quote.nil?
         tokens.concat(buffer.chop.split)
         tokens << SLASH_G
         buffer = ''
@@ -121,9 +122,8 @@ class SqlFormatter
         buffer << char
       end
 
-      # Remember characters that influence the next character's handling
-      was_escape = ESCAPE == char
-      was_operator = OPERATORS.include?(char)
+      # Remember the last character, which can influence the next one's handling
+      last_char = char
     end
 
     # Final flush
@@ -141,18 +141,20 @@ class SqlFormatter
   def format(tokens)
     formatted = '' # Return value
 
+    # Remember the last keyword, which can influence the next one's handling
+    last_keyword = nil
+
     # States for handling parentheses
     paren_stack = [] # Push after `(`; pop after `)`
     indent_level = 0 # Increment after `(`; decrement before `)`
-    last_keyword = nil
     skip_space_after_open_paren = false
 
     # States for handling long `select`
     one_column_per_line = false
     is_new_column = false
 
+    # Add formatted `token` to the return value
     tokens.each.with_index do |token, index|
-      # Add `token` to the formatted return value
       if skip_space_after_open_paren
         skip_space_after_open_paren = false
         formatted << token
@@ -184,14 +186,13 @@ class SqlFormatter
         formatted << ' ' << token
       end
 
-      # Set states for parentheses handling
+      # Set states for handling parentheses
       case token
       when PAREN_OPEN then paren_stack.push(last_keyword)
       when PAREN_CLOSE then paren_stack.pop
       end
-      last_keyword = token
 
-      # Set states for long `select` handling
+      # Set states for handling long `select`
       case token
       when SELECT
         comma_count = 0
@@ -207,6 +208,9 @@ class SqlFormatter
         end
       when FROM then one_column_per_line = false
       end
+
+      # Remember the last keyword, which can influence the next one's handling
+      last_keyword = token
     end
 
     formatted.strip
