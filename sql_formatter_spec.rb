@@ -8,25 +8,18 @@ describe SqlFormatter do
   subject { formatter.formatted }
 
   context 'when handling comma' do
-    context 'when outside of quotes' do
-      context 'when it has no preceding space' do
-        let(:query) { 'select a, b' }
-        it { should eq('select a, b') }
-      end
+    context 'when it has no preceding space' do
+      let(:query) { 'select a, b' }
+      it { should eq('select a, b') }
+    end
 
-      context 'when it has preceding space' do
+    context 'when it has preceding space' do
+      context 'when outside of quotes' do
         let(:query) { 'select a , b' }
         it { should eq('select a, b') }
       end
-    end
 
-    context 'when inside of quotes' do
-      context 'when it has no preceding space' do
-        let(:query) { 'select "a, b"' }
-        it { should eq('select "a, b"') }
-      end
-
-      context 'when it has preceding space' do
+      context 'when inside of quotes' do
         let(:query) { 'select "a , b"' }
         it { should eq('select "a , b"') }
       end
