@@ -197,7 +197,7 @@ class SqlFormatter
 end
 
 # If running specs, stop here
-return if ARGV&.first&.end_with?('sql_formatter_spec.rb')
+return if ARGV.first&.end_with?('sql_formatter_spec.rb')
 
 # Otherwise, process CLI input
 if ARGV.empty?
