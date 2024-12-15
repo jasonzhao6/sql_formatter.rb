@@ -192,4 +192,9 @@ describe SqlFormatter do
       end
     end
   end
+
+  context 'when handling backtick, used to escape reserved words' do
+    let(:query) { 'select a, `group`, b' }
+    it { should eq(query) }
+  end
 end
