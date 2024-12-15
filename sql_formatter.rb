@@ -97,6 +97,12 @@ class SqlFormatter
         tokens << SLASH_G
         buffer = ''
 
+      # Treat open and close parentheses as their own tokens
+      elsif (PAREN_OPEN == char || PAREN_CLOSE == char) && open_quote.nil?
+        tokens.concat(buffer.split)
+        tokens << char
+        buffer = ''
+
       # Add to buffer and wait for the next flush
       else
         buffer << char
@@ -116,6 +122,8 @@ class SqlFormatter
     indent_level = 0 # Increments right after `(`; decrements right before `)`
 
     tokens.each do |token|
+      indent_level -= 1 if PAREN_CLOSE == token
+
       if KEYWORDS_PRIMARY.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif KEYWORDS_SECONDARY.include?(token)
@@ -125,6 +133,8 @@ class SqlFormatter
       else
         formatted << ' ' << token
       end
+
+      indent_level += 1 if PAREN_OPEN == token
     end
 
     formatted.strip
