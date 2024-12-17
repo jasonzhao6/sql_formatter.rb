@@ -65,29 +65,29 @@ class SqlFormatter
     # Keep track of open quote and treat the entire quoted value as one token
     open_quote = nil # Valid states: %w(nil ' ")
 
-    # Holds a non-quoted value until the next quoted value, and vice versa
+    # Holds a quoted value until the next non-quoted value, and vice versa
     # When switching between the two, flush and process as follows:
-    # - Non-quoted values are tokenized by splitting on whitespace
     # - The entirety of a quoted value is treated as a whole token
+    # - Non-quoted values are tokenized by splitting on whitespace
     # Flush also happens after `OPERATORS`, `COMMA`, `SLASH_G`, etc
     buffer = ''
 
     # Accumulate `char` in `buffer`, then flush `buffer` to `tokens`
     query.chars.each do |char|
-      # Handle when switching from a non-quoted value to a quoted value
-      if QUOTES.include?(char) && ESCAPE != last_char && open_quote.nil?
-        open_quote = char
-
-        concat_downcased_buffer(tokens, buffer)
-        buffer = '' << char
-
       # Handle when switching from a quoted value to a non-quoted value
-      elsif QUOTES.include?(char) && ESCAPE != last_char && open_quote == char
+      if QUOTES.include?(char) && ESCAPE != last_char && open_quote == char
         open_quote = nil
 
         buffer << char
         tokens << buffer
         buffer = ''
+
+      # Handle when switching from a non-quoted value to a quoted value
+      elsif QUOTES.include?(char) && ESCAPE != last_char && open_quote.nil?
+        open_quote = char
+
+        concat_downcased_buffer(tokens, buffer)
+        buffer = '' << char
 
       # Treat operator as its own token
       elsif OPERATORS.include?(char) && !OPERATORS.include?(last_char) && open_quote.nil?
