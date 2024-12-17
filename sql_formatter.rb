@@ -29,7 +29,8 @@ class SqlFormatter
   JOIN_KEYWORDS = %w(inner left right full outer join) # Can form phrases
   PRIMARY_KEYWORDS = JOIN_KEYWORDS +
     %W(select from where order union #{SEMICOLON} #{SLASH_G})
-  SECONDARY_KEYWORDS = %w(on and or)
+  AND_OR_KEYWORDS = %w(and or)
+  SECONDARY_KEYWORDS = AND_OR_KEYWORDS + %w(on and or)
 
   # When formatting, if these keywords precede `PAREN_OPEN`, update indent level
   INDENT_KEYWORDS = %w(from in)
@@ -179,6 +180,8 @@ class SqlFormatter
         formatted << ' ' << token
       elsif PRIMARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
+      elsif AND_OR_KEYWORDS.include?(token) && PAREN_CLOSE == last_token
+        formatted << ' ' << token
       elsif SECONDARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
       else

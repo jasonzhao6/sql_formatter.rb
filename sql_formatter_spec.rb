@@ -221,6 +221,26 @@ describe SqlFormatter do
           SQL
         end
       end
+
+      context 'when it is after `or`' do
+        let(:query) { 'select * from a where id in (select id from b) or token in (select token from c);' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where id in (
+              select id
+              from b
+            ) or token in (
+              select token
+              from c
+            )
+            ;
+          SQL
+        end
+      end
     end
 
     context 'when it does not update indent level' do
@@ -303,7 +323,7 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling new line' do
+  context 'when handling existing new line' do
     let(:query) { "select\na\n,\n\nb" }
     it { should eq('select a, b') }
   end
