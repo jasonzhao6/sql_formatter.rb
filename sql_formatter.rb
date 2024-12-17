@@ -160,11 +160,9 @@ class SqlFormatter
         formatted << token
       elsif one_column_per_line && is_new_column
         is_new_column = false
-        formatted << token
-      elsif COMMA == token && one_column_per_line
+        formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+      elsif COMMA == token
         is_new_column = true
-        formatted << token << NEW_LINE << INDENT * (indent_level + 1)
-      elsif COMMA == token && !one_column_per_line
         formatted << token
       elsif PAREN_OPEN == token && INDENT_KEYWORDS.include?(last_token)
         indent_level += 1
@@ -205,7 +203,6 @@ class SqlFormatter
         if comma_count >= SELECT_COMMA_LIMIT
           one_column_per_line = true
           is_new_column = true
-          formatted << NEW_LINE << INDENT * (indent_level + 1)
         end
       when FROM then one_column_per_line = false
       end
