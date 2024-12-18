@@ -11,22 +11,91 @@ describe SqlFormatter do
   before { formatter.run }
   subject { formatter.formatted }
 
-  context 'when handling space' do
-    context 'when there is a single space' do
-      let(:query) { 'select a' }
+  context 'when handling simple characters' do
+    context 'when handling space' do
+      context 'when there is a single space' do
+        let(:query) { 'select a' }
+        it { should eq(query) }
+      end
+
+      context 'when there are consecutive spaces' do
+        context 'when outside of quotes' do
+          let(:query) { 'select  a' }
+          it { should eq('select a') }
+        end
+
+        context 'when inside of quotes' do
+          let(:query) { 'select "a  b"' }
+          it { should eq(query) }
+        end
+      end
+    end
+
+    context 'when handling comma' do
+      context 'when it has no preceding space' do
+        let(:query) { 'select a, b' }
+        it { should eq(query) }
+      end
+
+      context 'when it has preceding space' do
+        context 'when outside of quotes' do
+          let(:query) { 'select a , b' }
+          it { should eq('select a, b') }
+        end
+
+        context 'when inside of quotes' do
+          let(:query) { 'select "a , b"' }
+          it { should eq(query) }
+        end
+      end
+    end
+
+    context 'when handling semicolon' do
+      context 'when it has no preceding space' do
+        let(:query) { 'select a;' }
+        it { should eq("select a\n;") }
+      end
+
+      context 'when it has preceding space' do
+        context 'when outside of quotes' do
+          let(:query) { 'select a ;' }
+          it { should eq("select a\n;") }
+        end
+
+        context 'when inside of quotes' do
+          let(:query) { 'select "a ;"' }
+          it { should eq(query) }
+        end
+      end
+    end
+
+    context 'when handling slash-g' do
+      context 'when it has no preceding space' do
+        let(:query) { 'select a\\G' }
+        it { should eq("select a\n\\G") }
+      end
+
+      context 'when it has preceding space' do
+        context 'when outside of quotes' do
+          let(:query) { 'select a \\G' }
+          it { should eq("select a\n\\G") }
+        end
+
+        context 'when inside of quotes' do
+          let(:query) { 'select "a \\G"' }
+          it { should eq(query) }
+        end
+      end
+    end
+
+    context 'when handling backtick' do
+      let(:query) { 'select a, `group`, b' }
       it { should eq(query) }
     end
 
-    context 'when there are consecutive spaces' do
-      context 'when outside of quotes' do
-        let(:query) { 'select  a' }
-        it { should eq('select a') }
-      end
-
-      context 'when inside of quotes' do
-        let(:query) { 'select "a  b"' }
-        it { should eq(query) }
-      end
+    context 'when handling new line' do
+      let(:query) { "select\na\n,\n\nb" }
+      it { should eq('select a, b') }
     end
   end
 
@@ -66,102 +135,6 @@ describe SqlFormatter do
           let(:query) { 'select "a!=1"' }
           it { should eq(query) }
         end
-      end
-    end
-  end
-
-  context 'when handling comma' do
-    context 'when it has no preceding space' do
-      let(:query) { 'select a, b' }
-      it { should eq(query) }
-    end
-
-    context 'when it has preceding space' do
-      context 'when outside of quotes' do
-        let(:query) { 'select a , b' }
-        it { should eq('select a, b') }
-      end
-
-      context 'when inside of quotes' do
-        let(:query) { 'select "a , b"' }
-        it { should eq(query) }
-      end
-    end
-  end
-
-  context 'when handling semicolon' do
-    context 'when it has no preceding space' do
-      let(:query) { 'select a;' }
-      it { should eq("select a\n;") }
-    end
-
-    context 'when it has preceding space' do
-      context 'when outside of quotes' do
-        let(:query) { 'select a ;' }
-        it { should eq("select a\n;") }
-      end
-
-      context 'when inside of quotes' do
-        let(:query) { 'select "a ;"' }
-        it { should eq(query) }
-      end
-    end
-  end
-
-  context 'when handling slash-g' do
-    context 'when it has no preceding space' do
-      let(:query) { 'select a\\G' }
-      it { should eq("select a\n\\G") }
-    end
-
-    context 'when it has preceding space' do
-      context 'when outside of quotes' do
-        let(:query) { 'select a \\G' }
-        it { should eq("select a\n\\G") }
-      end
-
-      context 'when inside of quotes' do
-        let(:query) { 'select "a \\G"' }
-        it { should eq(query) }
-      end
-    end
-  end
-
-  context 'when handling keywords' do
-    context 'when there is only primary keywords' do
-      let(:query) { 'select a.id from a join b where b.id = 1 union select 1 id order by 1;' }
-      it { should eq(expected) }
-
-      let(:expected) do
-        <<~SQL.chomp
-          select a.id
-          from a
-          join b
-          where b.id = 1
-          union
-          select 1 id
-          order by 1
-          ;
-        SQL
-      end
-    end
-
-    context 'when there are both primary and secondary keywords' do
-      let(:query) { 'select * from a join b on a.id = b.id where a.id = 1 and a.id != 2 or a.id = 3 order by 1;' }
-      it { should eq(expected) }
-
-      let(:expected) do
-        <<~SQL.chomp
-          select *
-          from a
-          join b
-            on a.id = b.id
-          where a.id = 1
-            and a.id != 2
-            or a.id = 3
-          order by 1
-          ;
-        SQL
       end
     end
   end
@@ -276,101 +249,130 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling backtick' do
-    let(:query) { 'select a, `group`, b' }
-    it { should eq(query) }
-  end
-
-  context 'when handling upper case keywords' do
-    let(:query) { 'SELECT 1 FROM A;' }
-    it { should eq(expected) }
-
-    let(:expected) do
-      <<~SQL.chomp
-        select 1
-        from A
-        ;
-      SQL
-    end
-  end
-
-  context 'when handling long `select`' do
-    context 'when long enough' do
-      context 'when there is no alias' do
-        let(:query) { 'select aaaaaaaaaa, bbbbbbbbbb, cccccccccc, dddddddddd;' }
-        it { should eq(expected) }
-
-        let(:expected) do
-          <<~SQL.chomp
-            select
-              aaaaaaaaaa,
-              bbbbbbbbbb,
-              cccccccccc,
-              dddddddddd
-            ;
-          SQL
-        end
-      end
-
-      context 'when there is alias' do
-        let(:query) { 'select aaaaaaaaaa as a, bbbbbbbbbb as b, cccccccccc as c, dddddddddd as d;' }
-        it { should eq(expected) }
-
-        let(:expected) do
-          <<~SQL.chomp
-            select
-              aaaaaaaaaa as a,
-              bbbbbbbbbb as b,
-              cccccccccc as c,
-              dddddddddd as d
-            ;
-          SQL
-        end
-      end
-    end
-
-    context 'when not enough chars' do
-      let(:query) { 'select a, b, c, d;' }
-      it { should eq("select a, b, c, d\n;") }
-    end
-
-    context 'when not enough commas' do
-      let(:query) { 'select aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;' }
-      it { should eq("select aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n;") }
-    end
-  end
-
-  context 'when handling existing new line' do
-    let(:query) { "select\na\n,\n\nb" }
-    it { should eq('select a, b') }
-  end
-
-  context 'when handling multi-word join' do
-    context 'when left join' do
-      let(:query) { 'select a.id from a left join b;' }
+  context 'when handling keywords' do
+    context 'when there is only primary keywords' do
+      let(:query) { 'select a.id from a join b where b.id = 1 union select 1 id order by 1;' }
       it { should eq(expected) }
 
       let(:expected) do
         <<~SQL.chomp
           select a.id
           from a
-          left join b
+          join b
+          where b.id = 1
+          union
+          select 1 id
+          order by 1
           ;
         SQL
       end
     end
 
-    context 'when full outer join' do
-      let(:query) { 'select a.id from a full outer join b;' }
+    context 'when there are both primary and secondary keywords' do
+      let(:query) { 'select * from a join b on a.id = b.id where a.id = 1 and a.id != 2 or a.id = 3 order by 1;' }
       it { should eq(expected) }
 
       let(:expected) do
         <<~SQL.chomp
-          select a.id
+          select *
           from a
-          full outer join b
+          join b
+            on a.id = b.id
+          where a.id = 1
+            and a.id != 2
+            or a.id = 3
+          order by 1
           ;
         SQL
+      end
+    end
+
+    context 'when handling long `select`' do
+      context 'when long enough' do
+        context 'when there is no alias' do
+          let(:query) { 'select aaaaaaaaaa, bbbbbbbbbb, cccccccccc, dddddddddd;' }
+          it { should eq(expected) }
+
+          let(:expected) do
+            <<~SQL.chomp
+              select
+                aaaaaaaaaa,
+                bbbbbbbbbb,
+                cccccccccc,
+                dddddddddd
+              ;
+            SQL
+          end
+        end
+
+        context 'when there is alias' do
+          let(:query) { 'select aaaaaaaaaa as a, bbbbbbbbbb as b, cccccccccc as c, dddddddddd as d;' }
+          it { should eq(expected) }
+
+          let(:expected) do
+            <<~SQL.chomp
+              select
+                aaaaaaaaaa as a,
+                bbbbbbbbbb as b,
+                cccccccccc as c,
+                dddddddddd as d
+              ;
+            SQL
+          end
+        end
+      end
+
+      context 'when not enough chars' do
+        let(:query) { 'select a, b, c, d;' }
+        it { should eq("select a, b, c, d\n;") }
+      end
+
+      context 'when not enough commas' do
+        let(:query) { 'select aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;' }
+        it { should eq("select aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n;") }
+      end
+    end
+
+    context 'when handling upper case keywords' do
+      let(:query) { 'SELECT 1 FROM A;' }
+      it { should eq(expected) }
+
+      let(:expected) do
+        <<~SQL.chomp
+          select 1
+          from A
+          ;
+        SQL
+      end
+    end
+
+    context 'when handling multi-word join' do
+      context 'when left join' do
+        let(:query) { 'select a.id from a left join b;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select a.id
+            from a
+            left join b
+            ;
+          SQL
+        end
+      end
+
+      context 'when full outer join' do
+        let(:query) { 'select a.id from a full outer join b;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select a.id
+            from a
+            full outer join b
+            ;
+          SQL
+        end
       end
     end
   end

@@ -1,13 +1,15 @@
 class SqlFormatter
-  # Characters with special tokenizing logic
+  # Characters with simple tokenization logic
   COMMA = ','
   ESCAPE = '\\'
+  SEMICOLON = ';'
+  SLASH_G = '\\G'
+
+  # Characters with complex tokenization logic
   OPERATORS = %w(! = < >)
   PAREN_CLOSE = ')'
   PAREN_OPEN = '('
   QUOTES = %w(' ")
-  SEMICOLON = ';'
-  SLASH_G = '\\G'
 
   # Formatting config
   INDENT = '  '
