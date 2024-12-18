@@ -167,9 +167,9 @@ describe SqlFormatter do
   end
 
   context 'when handling parentheses' do
-    context 'when it updates indent level' do
-      context 'when it is after `from`' do
-        context 'when there is one level' do
+    context 'when handling subquery' do
+      context 'when subquery comes after `from`' do
+        context 'when nesting one level' do
           let(:query) { 'select * from (select * from a); ' }
           it { should eq(expected) }
 
@@ -185,7 +185,7 @@ describe SqlFormatter do
           end
         end
 
-        context 'when there are two levels' do
+        context 'when nesting two levels' do
           let(:query) { 'select * from (select * from (select * from a)); ' }
           it { should eq(expected) }
 
@@ -205,7 +205,7 @@ describe SqlFormatter do
         end
       end
 
-      context 'when it is after `in`' do
+      context 'when subquery comes after `in`' do
         let(:query) { 'select * from a where id in (select id from b);' }
         it { should eq(expected) }
 
@@ -222,7 +222,7 @@ describe SqlFormatter do
         end
       end
 
-      context 'when it is after `or`' do
+      context 'when subquery comes after `or <column> in`' do
         let(:query) { 'select * from a where id in (select id from b) or token in (select token from c);' }
         it { should eq(expected) }
 
@@ -243,8 +243,13 @@ describe SqlFormatter do
       end
     end
 
-    context 'when it does not update indent level' do
-      context 'when there is a function call' do
+    context 'when handling a non-subquery list' do
+      let(:query) { 'select * from a where id in (1,2,3,4);' }
+      it { should eq("select *\nfrom a\nwhere id in (1, 2, 3, 4)\n;") }
+    end
+
+    context 'when calling function' do
+      context 'when calling one function' do
         let(:query) { 'select distinct(`group`) from sysconfig;' }
         it { should eq(expected) }
 
@@ -257,7 +262,7 @@ describe SqlFormatter do
         end
       end
 
-      context 'when there are nested function calls' do
+      context 'when calling two functions' do
         let(:query) { "select upper(concat('hello', ' ', 'world'));" }
         it { should eq(expected) }
 
