@@ -167,21 +167,21 @@ class SqlFormatter
         formatted << ' ' << token
       elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_token)
         formatted << token
+      elsif PAREN_OPEN == last_token && SELECT != token
+        formatted << token
       elsif PAREN_CLOSE == token && INDENT_KEYWORDS.include?(paren_stack.last)
         indent_level -= 1
         formatted << NEW_LINE << INDENT * indent_level << token
       elsif PAREN_CLOSE == token && !INDENT_KEYWORDS.include?(paren_stack.last)
         formatted << token
+      elsif PAREN_CLOSE == last_token && AND_OR_KEYWORDS.include?(token)
+        formatted << ' ' << token
       elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
         formatted << ' ' << token
       elsif PRIMARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
-      elsif AND_OR_KEYWORDS.include?(token) && PAREN_CLOSE == last_token
-        formatted << ' ' << token
       elsif SECONDARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
-      elsif PAREN_OPEN == last_token
-        formatted << token
       else
         formatted << ' ' << token
       end
