@@ -149,7 +149,6 @@ class SqlFormatter
     # States for handling parentheses
     paren_stack = [] # Push after `(`; pop after `)`
     indent_level = 0 # Increment after `(`; decrement before `)`
-    skip_space_after_open_paren = false
 
     # States for handling long `select`
     one_column_per_line = false
@@ -157,10 +156,7 @@ class SqlFormatter
 
     # Add formatted `token` to the return value
     tokens.each.with_index do |token, index|
-      if skip_space_after_open_paren
-        skip_space_after_open_paren = false
-        formatted << token
-      elsif one_column_per_line && is_new_column
+      if one_column_per_line && is_new_column
         is_new_column = false
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
       elsif COMMA == token
@@ -170,7 +166,6 @@ class SqlFormatter
         indent_level += 1
         formatted << ' ' << token
       elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_token)
-        skip_space_after_open_paren = true
         formatted << token
       elsif PAREN_CLOSE == token && INDENT_KEYWORDS.include?(paren_stack.last)
         indent_level -= 1
@@ -185,6 +180,8 @@ class SqlFormatter
         formatted << ' ' << token
       elsif SECONDARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+      elsif PAREN_OPEN == last_token
+        formatted << token
       else
         formatted << ' ' << token
       end
