@@ -257,7 +257,7 @@ describe SqlFormatter do
         end
       end
 
-      xcontext 'when there are nested function calls' do
+      context 'when there are nested function calls' do
         let(:query) { "select upper(concat('hello', ' ', 'world'));" }
         it { should eq(expected) }
 

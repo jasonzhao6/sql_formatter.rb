@@ -200,17 +200,24 @@ class SqlFormatter
       when SELECT
         char_count = 0
         comma_count = 0
+        paren_count = 0
+
         ((index + 1)...tokens.size).each do |next_index|
-          char_count += tokens[next_index].size
-          comma_count += 1 if COMMA == tokens[next_index]
-          break if FROM == tokens[next_index]
+          case tokens[next_index]
+          when FROM then break
+          when PAREN_OPEN then paren_count += 1
+          when PAREN_CLOSE then paren_count -= 1
+          when COMMA then comma_count += 1 if paren_count == 0
+          else char_count += tokens[next_index].size
+          end
         end
 
         if char_count >= SELECT_CHAR_LIMIT && comma_count >= SELECT_COMMA_LIMIT
           one_column_per_line = true
           is_new_column = true
         end
-      when FROM then one_column_per_line = false
+      when FROM
+        one_column_per_line = false
       end
 
       # Remember the last token, which can influence the next one's handling
