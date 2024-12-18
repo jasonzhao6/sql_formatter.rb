@@ -12,32 +12,30 @@ class SqlFormatter
   # Keywords with special formatting logic
   SELECT = 'select'
   FROM = 'from'
+  SELECTABLE_KEYWORDS = %w(from in)
 
-  # Formatting configurations
+  # Formatting config
   INDENT = '  '
   NEW_LINE = "\n"
-  SELECT_CHAR_LIMIT = 20 # Break `select` into multiple lines if over limit
-  SELECT_COMMA_LIMIT = 1 # Break `select` into multiple lines if over limit
+  SELECT_CHAR_LIMIT = 20 # Break long `select` into multiple lines if over limit
+  SELECT_COMMA_LIMIT = 1 # Break long `select` into multiple lines if over limit
 
-  # When formatting, indent secondary keywords an extra level than primary, e.g
+  # Indent secondary keywords an extra level than primary keywords, e.g
   #  ```
   #  from a            # `from` is a primary keyword
-  #  left join b       # `left join` is a primary phrase
+  #  left join b       # `left join` is a primary keyword
   #    on a.id = b.id  # `on` is a secondary keyword
   #  where key1 = 1    # `where` is a primary keyword
   #    and key2 = 2    # `and` is a secondary keyword
   #  ```
-  JOIN_KEYWORDS = %w(inner left right full outer join) # Can form phrases
+  JOIN_KEYWORDS = %w(inner left right full outer join) # Can be multi-word
   PRIMARY_KEYWORDS = JOIN_KEYWORDS +
     %W(select from where order union #{SEMICOLON} #{SLASH_G})
   AND_OR_KEYWORDS = %w(and or)
-  SECONDARY_KEYWORDS = AND_OR_KEYWORDS + %w(on and or)
+  SECONDARY_KEYWORDS = AND_OR_KEYWORDS + %w(on)
 
-  # When formatting, if these keywords precede `PAREN_OPEN`, update indent level
-  INDENT_KEYWORDS = %w(from in)
-
-  # When tokenizing, downcase all keywords
-  ALL_KEYWORDS = (PRIMARY_KEYWORDS + SECONDARY_KEYWORDS + INDENT_KEYWORDS).uniq
+  ALL_KEYWORDS =
+    (PRIMARY_KEYWORDS + SECONDARY_KEYWORDS + SELECTABLE_KEYWORDS).uniq
 
   attr_reader :tokens
   attr_reader :formatted
@@ -156,32 +154,60 @@ class SqlFormatter
 
     # Add formatted `token` to the return value
     tokens.each.with_index do |token, index|
+      # Break long `select` into multiple lines
       if one_column_per_line && is_new_column
         is_new_column = false
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+
+      # Add comma without any preceding space
       elsif COMMA == token
-        is_new_column = true
+        is_new_column = true # Only used when handling long `select`
         formatted << token
-      elsif PAREN_OPEN == token && INDENT_KEYWORDS.include?(last_token)
-        indent_level += 1
+
+      # Add `(` with a preceding space when followed by a selectable list
+      elsif PAREN_OPEN == token && SELECTABLE_KEYWORDS.include?(last_token)
+        indent_level += 1 # Only used when parentheses encloses a `select`
         formatted << ' ' << token
-      elsif PAREN_OPEN == token && !INDENT_KEYWORDS.include?(last_token)
+
+      # Add `(` without any preceding space (when preceded by a function)
+      elsif PAREN_OPEN == token && !SELECTABLE_KEYWORDS.include?(last_token)
         formatted << token
+
+      # Add token after `(` without any preceding space unless token is `select`
       elsif PAREN_OPEN == last_token && SELECT != token
         formatted << token
-      elsif PAREN_CLOSE == token && INDENT_KEYWORDS.include?(paren_stack.last)
-        indent_level -= 1
+
+      # Add `)` with a preceding new line when preceded by a selectable list
+      # TODO
+      elsif PAREN_CLOSE == token &&
+        SELECTABLE_KEYWORDS.include?(paren_stack.last)
+
+        indent_level -= 1 # Only used when parentheses encloses a `select`
         formatted << NEW_LINE << INDENT * indent_level << token
-      elsif PAREN_CLOSE == token && !INDENT_KEYWORDS.include?(paren_stack.last)
+
+      # Add `)` without any preceding new line (when preceded by a function)
+      elsif PAREN_CLOSE == token &&
+        !SELECTABLE_KEYWORDS.include?(paren_stack.last)
+
         formatted << token
+
+      # Add `and`/`or` with a preceding space when preceded by `)`
       elsif PAREN_CLOSE == last_token && AND_OR_KEYWORDS.include?(token)
         formatted << ' ' << token
+
+      # Add consecutive join keywords with a preceding space
       elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
         formatted << ' ' << token
+
+      # Add primary keywords with normal indentation
       elsif PRIMARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
+
+      # Add secondary keywords with an extra level of indentation
       elsif SECONDARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+
+      # Add anything else with a preceding space
       else
         formatted << ' ' << token
       end
@@ -199,6 +225,7 @@ class SqlFormatter
         comma_count = 0
         paren_count = 0
 
+        # Collect stats to determine if we are over limit
         ((index + 1)...tokens.size).each do |next_index|
           case tokens[next_index]
           when FROM then break
@@ -209,6 +236,7 @@ class SqlFormatter
           end
         end
 
+        # Break long `select` into multiple lines if over limit
         if char_count >= SELECT_CHAR_LIMIT && comma_count >= SELECT_COMMA_LIMIT
           one_column_per_line = true
           is_new_column = true
@@ -225,7 +253,7 @@ class SqlFormatter
   end
 end
 
-# If running specs, stop here
+# If running from specs, stop here
 return if ARGV.first&.end_with?('sql_formatter_spec.rb')
 
 # Otherwise, process CLI input
@@ -240,6 +268,8 @@ if ARGV.empty?
   loop do
     input << gets
     break if input.strip.end_with?(';') || input.strip.end_with?('\\G')
+  rescue TypeError
+    raise 'Either an argument or interactive input is required.'
   end
 
   puts
