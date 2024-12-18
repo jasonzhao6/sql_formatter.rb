@@ -140,7 +140,7 @@ describe SqlFormatter do
   end
 
   context 'when handling parentheses' do
-    context 'when handling subquery' do
+    context 'when handling a subquery list' do
       context 'when subquery comes after `from`' do
         context 'when nesting one level' do
           let(:query) { 'select * from (select * from a); ' }
@@ -217,8 +217,29 @@ describe SqlFormatter do
     end
 
     context 'when handling a non-subquery list' do
-      let(:query) { 'select * from a where id in (1,2,3,4);' }
-      it { should eq("select *\nfrom a\nwhere id in (1, 2, 3, 4)\n;") }
+      context 'when list is short' do
+        let(:query) { 'select * from a where id in (1,2,3,4);' }
+        it { should eq("select *\nfrom a\nwhere id in (1, 2, 3, 4)\n;") }
+      end
+
+      context 'when list is long' do
+        let(:query) { 'select * from a where id in (1111111111,2222222222,3333333333,4444444444);' }
+        xit { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where id in (
+              1111111111,
+              2222222222,
+              3333333333,
+              4444444444
+            )
+            ;
+          SQL
+        end
+      end
     end
 
     context 'when calling function' do

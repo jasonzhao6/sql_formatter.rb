@@ -3,7 +3,7 @@ class SqlFormatter
   COMMA = ','
   ESCAPE = '\\'
   SEMICOLON = ';'
-  SLASH_G = '\\G'
+  SLASH_G = ESCAPE + 'G'
 
   # Characters with complex tokenization logic
   OPERATORS = %w(! = < >)
@@ -236,8 +236,9 @@ class SqlFormatter
       when PAREN_CLOSE then paren_stack.pop
       end
 
-      # Set states for handling long `select`
+      # Set states for handling long `SELECT`
       case token
+      # Start looking ahead
       when SELECT
         char_count = 0
         comma_count = 0
@@ -252,7 +253,7 @@ class SqlFormatter
           when PAREN_OPEN then paren_count += 1
           when PAREN_CLOSE then paren_count -= 1
           when COMMA then comma_count += 1 if paren_count == 0
-          # Count all chars (ignoring whitespace unintentionally)
+          # Count all chars (unintentionally ignoring whitespace)
           else char_count += tokens[next_index].size
           end
         end
@@ -262,6 +263,7 @@ class SqlFormatter
           one_column_per_line = true
           is_new_column = true
         end
+      # Stop when we reach `FROM`
       when FROM
         one_column_per_line = false
       end
