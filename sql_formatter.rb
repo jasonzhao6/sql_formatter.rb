@@ -16,7 +16,8 @@ class SqlFormatter
   # Formatting configurations
   INDENT = '  '
   NEW_LINE = "\n"
-  SELECT_COMMA_LIMIT = 3 # Break `select` into multiple lines if over limit
+  SELECT_CHAR_LIMIT = 20 # Break `select` into multiple lines if over limit
+  SELECT_COMMA_LIMIT = 1 # Break `select` into multiple lines if over limit
 
   # When formatting, indent secondary keywords an extra level than primary, e.g
   #  ```
@@ -197,13 +198,15 @@ class SqlFormatter
       # Set states for handling long `select`
       case token
       when SELECT
+        char_count = 0
         comma_count = 0
-        (index...tokens.size).each do |next_index|
+        ((index + 1)...tokens.size).each do |next_index|
+          char_count += tokens[next_index].size
           comma_count += 1 if COMMA == tokens[next_index]
           break if FROM == tokens[next_index]
         end
 
-        if comma_count >= SELECT_COMMA_LIMIT
+        if char_count >= SELECT_CHAR_LIMIT && comma_count >= SELECT_COMMA_LIMIT
           one_column_per_line = true
           is_new_column = true
         end

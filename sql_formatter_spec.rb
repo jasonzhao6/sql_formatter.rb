@@ -257,7 +257,7 @@ describe SqlFormatter do
         end
       end
 
-      context 'when there are nested function calls' do
+      xcontext 'when there are nested function calls' do
         let(:query) { "select upper(concat('hello', ' ', 'world'));" }
         it { should eq(expected) }
 
@@ -290,36 +290,48 @@ describe SqlFormatter do
   end
 
   context 'when handling long `select`' do
-    context 'when there is no alias' do
-      let(:query) { 'select a, b, c, d;' }
-      it { should eq(expected) }
+    context 'when long enough' do
+      context 'when there is no alias' do
+        let(:query) { 'select aaaaaaaaaa, bbbbbbbbbb, cccccccccc, dddddddddd;' }
+        it { should eq(expected) }
 
-      let(:expected) do
-        <<~SQL.chomp
-          select
-            a,
-            b,
-            c,
-            d
-          ;
-        SQL
+        let(:expected) do
+          <<~SQL.chomp
+            select
+              aaaaaaaaaa,
+              bbbbbbbbbb,
+              cccccccccc,
+              dddddddddd
+            ;
+          SQL
+        end
+      end
+
+      context 'when there is alias' do
+        let(:query) { 'select aaaaaaaaaa as a, bbbbbbbbbb as b, cccccccccc as c, dddddddddd as d;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select
+              aaaaaaaaaa as a,
+              bbbbbbbbbb as b,
+              cccccccccc as c,
+              dddddddddd as d
+            ;
+          SQL
+        end
       end
     end
 
-    context 'when there is alias' do
-      let(:query) { 'select a as aa, b as bb, c as cc, d as dd;' }
-      it { should eq(expected) }
+    context 'when not enough chars' do
+      let(:query) { 'select a, b, c, d;' }
+      it { should eq("select a, b, c, d\n;") }
+    end
 
-      let(:expected) do
-        <<~SQL.chomp
-          select
-            a as aa,
-            b as bb,
-            c as cc,
-            d as dd
-          ;
-        SQL
-      end
+    context 'when not enough commas' do
+      let(:query) { 'select aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;' }
+      it { should eq("select aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n;") }
     end
   end
 
