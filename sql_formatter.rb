@@ -1,3 +1,5 @@
+Parenthesis = Struct.new(:token, :is_subquery)
+
 class SqlFormatter
   # Characters with simple tokenization logic
   COMMA = ','
@@ -182,30 +184,37 @@ class SqlFormatter
         formatted << token
 
       # Add token after `PAREN_OPEN` without space (when preceded by a function)
-      elsif PAREN_OPEN == last_token && !SUBQUERY_KEYWORDS.include?(paren_stack.last)
+      elsif PAREN_OPEN == last_token &&
+        !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
+
         formatted << token
 
       # Add token after `PAREN_OPEN` without space enclosing a non-subquery list
       elsif PAREN_OPEN == last_token &&
-        SUBQUERY_KEYWORDS.include?(paren_stack.last) &&
+        SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
         SELECT != token
 
-        paren_stack[-1] = NOT_SUBQUERY
+        paren_stack.last.is_subquery = false
         formatted << token
 
       # Add `PAREN_CLOSE` with a new line when enclosing a subquery list
-      elsif PAREN_CLOSE == token && SUBQUERY_KEYWORDS.include?(paren_stack.last)
+      elsif PAREN_CLOSE == token &&
+        SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
+        paren_stack.last.is_subquery != false
+
         indent_level -= 1 # Only used when parentheses encloses a subquery
         formatted << NEW_LINE << INDENT * indent_level << token
 
       # Add `PAREN_CLOSE` without space when enclosing a non-subquery list
-      elsif PAREN_CLOSE == token && NOT_SUBQUERY == paren_stack.last
+      elsif PAREN_CLOSE == token &&
+        SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
+        paren_stack.last.is_subquery == false
         indent_level -= 1 # Only used when parentheses encloses a subquery
         formatted << token
 
       # Add `PAREN_CLOSE` without space (when preceded by a function)
       elsif PAREN_CLOSE == token &&
-        !SUBQUERY_KEYWORDS.include?(paren_stack.last)
+        !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
 
         formatted << token
 
@@ -248,7 +257,7 @@ class SqlFormatter
 
   def update_paren_stack(paren_stack, token, last_token)
     case token
-    when PAREN_OPEN then paren_stack.push(last_token)
+    when PAREN_OPEN then paren_stack.push(Parenthesis.new(last_token))
     when PAREN_CLOSE then paren_stack.pop
     end
   end
