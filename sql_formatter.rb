@@ -231,41 +231,12 @@ class SqlFormatter
       end
 
       # Set states for handling parentheses
-      case token
-      when PAREN_OPEN then paren_stack.push(last_token)
-      when PAREN_CLOSE then paren_stack.pop
-      end
+      update_paren_stack(paren_stack, token, last_token)
 
       # Set states for handling long `SELECT`
-      case token
-      # Start looking ahead
-      when SELECT
-        char_count = 0
-        comma_count = 0
-        paren_count = 0
-
-        # Collect stats to determine if we are over limit
-        ((index + 1)...tokens.size).each do |next_index|
-          case tokens[next_index]
-          # Stop when we reach `FROM`
-          when FROM then break
-          # Count only `COMMA` outside of parentheses
-          when PAREN_OPEN then paren_count += 1
-          when PAREN_CLOSE then paren_count -= 1
-          when COMMA then comma_count += 1 if paren_count == 0
-          # Count all chars (unintentionally ignoring whitespace)
-          else char_count += tokens[next_index].size
-          end
-        end
-
-        # Break long `select` into multiple lines if over char and comma limits
-        if char_count >= SELECT_CHAR_LIMIT && comma_count >= SELECT_COMMA_LIMIT
-          one_column_per_line = true
-          is_new_column = true
-        end
-      # Stop when we reach `FROM`
-      when FROM
-        one_column_per_line = false
+      case is_long_select(tokens, index)
+      when true then one_column_per_line = is_new_column = true
+      when false then one_column_per_line = false
       end
 
       # Remember the last token, which can influence the next one's handling
@@ -273,6 +244,39 @@ class SqlFormatter
     end
 
     formatted.strip
+  end
+
+  def update_paren_stack(paren_stack, token, last_token)
+    case token
+    when PAREN_OPEN then paren_stack.push(last_token)
+    when PAREN_CLOSE then paren_stack.pop
+    end
+  end
+
+  def is_long_select(tokens, index)
+    return false if FROM == tokens[index] # Deactivate long `select` handling
+    return nil if SELECT != tokens[index] # Continue with the current handling
+
+    char_count = 0
+    comma_count = 0
+    paren_count = 0
+
+    # Count chars and commas
+    ((index + 1)...tokens.size).each do |next_index|
+      case tokens[next_index]
+      # Stop when we reach the next `FROM`
+      when FROM then break
+      # Count only `COMMA` outside of parentheses
+      when PAREN_OPEN then paren_count += 1
+      when PAREN_CLOSE then paren_count -= 1
+      when COMMA then comma_count += 1 if paren_count == 0
+      # Count all chars (unintentionally ignoring whitespace)
+      else char_count += tokens[next_index].size
+      end
+    end
+
+    # Activate long `select` handling if over char and comma limits
+    char_count >= SELECT_CHAR_LIMIT && comma_count >= SELECT_COMMA_LIMIT
   end
 end
 
