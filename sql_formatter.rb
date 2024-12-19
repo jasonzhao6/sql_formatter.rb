@@ -169,7 +169,7 @@ class SqlFormatter
         is_new_column = false
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
 
-      # Add `COMMA` without space
+      # Add `COMMA` without a space
       elsif COMMA == token
         is_new_column = true # Only used when handling long `SELECT`
         formatted << token
@@ -179,22 +179,22 @@ class SqlFormatter
         indent_level += 1 # Only used when parentheses encloses a subquery
         formatted << ' ' << token
 
-      # Add `PAREN_OPEN` without space (when preceded by a function)
+      # Add `PAREN_OPEN` without any space (when preceded by a function)
       elsif PAREN_OPEN == token && !SUBQUERY_KEYWORDS.include?(last_token)
         formatted << token
 
-      # Add token after `PAREN_OPEN` without space (when preceded by a function)
-      elsif PAREN_OPEN == last_token &&
-        !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
-
-        formatted << token
-
-      # Add token after `PAREN_OPEN` without space enclosing a non-subquery list
+      # Add token after `PAREN_OPEN` when enclosing a non-subquery list
       elsif PAREN_OPEN == last_token &&
         SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
         SELECT != token
 
         paren_stack.last.is_subquery = false
+        formatted << token
+
+      # Add token after `PAREN_OPEN` (when preceded by a function)
+      elsif PAREN_OPEN == last_token &&
+        !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
+
         formatted << token
 
       # Add `PAREN_CLOSE` with a new line when enclosing a subquery list
@@ -205,14 +205,14 @@ class SqlFormatter
         indent_level -= 1 # Only used when parentheses encloses a subquery
         formatted << NEW_LINE << INDENT * indent_level << token
 
-      # Add `PAREN_CLOSE` without space when enclosing a non-subquery list
+      # Add `PAREN_CLOSE` without any space when enclosing a non-subquery list
       elsif PAREN_CLOSE == token &&
         SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
         paren_stack.last.is_subquery == false
         indent_level -= 1 # Only used when parentheses encloses a subquery
         formatted << token
 
-      # Add `PAREN_CLOSE` without space (when preceded by a function)
+      # Add `PAREN_CLOSE` without any space (when preceded by a function)
       elsif PAREN_CLOSE == token &&
         !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
 
