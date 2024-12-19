@@ -67,9 +67,6 @@ class SqlFormatter
   def tokenize(query)
     tokens = [] # Return value
 
-    # Remember the last character, which can influence the next one's handling
-    last_char = nil
-
     # Keep track of open quote and treat the entire quoted value as one token
     open_quote = nil # Valid states: %w(nil ' ")
 
@@ -82,7 +79,10 @@ class SqlFormatter
 
     # Accumulate `char` in `buffer`, then flush `buffer` to `tokens`
     # REMINDER: Avoid nested conditionals; keep it only one level for simplicity
-    query.chars.each do |char|
+    chars = query.chars
+    chars.each.with_index do |char, index|
+      last_char = chars[index - 1]
+
       # Handle when switching from a quoted value to a non-quoted value
       if QUOTES.include?(char) && ESCAPE != last_char && open_quote == char
         open_quote = nil
@@ -99,13 +99,19 @@ class SqlFormatter
         buffer = '' << char
 
       # Treat operator as its own token
-      elsif OPERATORS.include?(char) && !OPERATORS.include?(last_char) && open_quote.nil?
+      elsif OPERATORS.include?(char) &&
+        !OPERATORS.include?(last_char) &&
+        open_quote.nil?
+
         concat_downcased_buffer(tokens, buffer)
         tokens << char
         buffer = ''
 
       # Pair up consecutive operators; they are always either 1-char or 2-chars
-      elsif OPERATORS.include?(char) && OPERATORS.include?(last_char) && open_quote.nil?
+      elsif OPERATORS.include?(char) &&
+        OPERATORS.include?(last_char) &&
+        open_quote.nil?
+
         tokens.last << char
 
       # Treat comma and semicolon as their own tokens
@@ -130,9 +136,6 @@ class SqlFormatter
       else
         buffer << char
       end
-
-      # Remember the last character, which can influence the next one's handling
-      last_char = char
     end
 
     # Final flush
@@ -150,9 +153,6 @@ class SqlFormatter
   def format(tokens)
     formatted = '' # Return value
 
-    # Remember the last token, which can influence the next one's handling
-    last_token = nil
-
     # States for handling parenthesis
     paren_stack = [] # Push after `PAREN_OPEN`; pop after `PAREN_CLOSE`
     indent_level = 0 # Inc after `PAREN_OPEN`; dec before `PAREN_CLOSE`
@@ -164,6 +164,8 @@ class SqlFormatter
     # Add formatted `token` to the return value
     # REMINDER: Avoid nested conditionals; keep it only one level for simplicity
     tokens.each.with_index do |token, index|
+      last_token = tokens[index - 1]
+
       # Break long `SELECT` into multiple lines
       if one_column_per_line && is_new_column
         is_new_column = false
@@ -240,24 +242,21 @@ class SqlFormatter
       end
 
       # Set states for handling parenthesis
-      update_paren_stack(paren_stack, token, last_token)
+      update_paren_stack(paren_stack, tokens, index)
 
       # Set states for handling long `SELECT`
       case is_long_select(tokens, index)
       when true then one_column_per_line = is_new_column = true
       when false then one_column_per_line = false
       end
-
-      # Remember the last token, which can influence the next one's handling
-      last_token = token
     end
 
     formatted.strip
   end
 
-  def update_paren_stack(paren_stack, token, last_token)
-    case token
-    when PAREN_OPEN then paren_stack.push(Parenthesis.new(last_token))
+  def update_paren_stack(paren_stack, tokens, index)
+    case tokens[index]
+    when PAREN_OPEN then paren_stack.push(Parenthesis.new(tokens[index - 1]))
     when PAREN_CLOSE then paren_stack.pop
     end
   end

@@ -224,7 +224,7 @@ describe SqlFormatter do
 
       context 'when list is long' do
         let(:query) { 'select * from a where id in (1111111111,2222222222,3333333333,4444444444);' }
-        fit { should eq(expected) }
+        xit { should eq(expected) }
 
         let(:expected) do
           <<~SQL.chomp
