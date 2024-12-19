@@ -120,7 +120,7 @@ class SqlFormatter
         tokens << SLASH_G
         buffer = ''
 
-      # Treat open and close parentheses as their own tokens
+      # Treat parenthesis as their own tokens
       elsif (PAREN_OPEN == char || PAREN_CLOSE == char) && open_quote.nil?
         concat_downcased_buffer(tokens, buffer)
         tokens << char
@@ -153,7 +153,7 @@ class SqlFormatter
     # Remember the last token, which can influence the next one's handling
     last_token = nil
 
-    # States for handling parentheses
+    # States for handling parenthesis
     paren_stack = [] # Push after `PAREN_OPEN`; pop after `PAREN_CLOSE`
     indent_level = 0 # Inc after `PAREN_OPEN`; dec before `PAREN_CLOSE`
 
@@ -176,7 +176,7 @@ class SqlFormatter
 
       # Add `PAREN_OPEN` with a space when enclosing a list
       elsif PAREN_OPEN == token && SUBQUERY_KEYWORDS.include?(last_token)
-        indent_level += 1 # Only used when parentheses encloses a subquery
+        indent_level += 1 # Only used when parenthesis encloses a subquery
         formatted << ' ' << token
 
       # Add `PAREN_OPEN` without any space (when preceded by a function)
@@ -202,14 +202,14 @@ class SqlFormatter
         SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
         paren_stack.last.is_subquery != false
 
-        indent_level -= 1 # Only used when parentheses encloses a subquery
+        indent_level -= 1 # Only used when parenthesis encloses a subquery
         formatted << NEW_LINE << INDENT * indent_level << token
 
       # Add `PAREN_CLOSE` without any space when enclosing a non-subquery list
       elsif PAREN_CLOSE == token &&
         SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
         paren_stack.last.is_subquery == false
-        indent_level -= 1 # Only used when parentheses encloses a subquery
+        indent_level -= 1 # Only used when parenthesis encloses a subquery
         formatted << token
 
       # Add `PAREN_CLOSE` without any space (when preceded by a function)
@@ -239,7 +239,7 @@ class SqlFormatter
         formatted << ' ' << token
       end
 
-      # Set states for handling parentheses
+      # Set states for handling parenthesis
       update_paren_stack(paren_stack, token, last_token)
 
       # Set states for handling long `SELECT`
@@ -264,7 +264,7 @@ class SqlFormatter
 
   def is_long_select(tokens, index)
     return false if FROM == tokens[index] # Deactivate long `select` handling
-    return nil if SELECT != tokens[index] # Continue with the current handling
+    return nil if SELECT != tokens[index] # Continue with current handling
 
     char_count = 0
     comma_count = 0
@@ -275,7 +275,7 @@ class SqlFormatter
       case tokens[next_index]
       # Stop when we reach the next `FROM`
       when FROM then break
-      # Count only `COMMA` outside of parentheses
+      # Count only `COMMA` outside of parenthesis
       when PAREN_OPEN then paren_count += 1
       when PAREN_CLOSE then paren_count -= 1
       when COMMA then comma_count += 1 if paren_count == 0

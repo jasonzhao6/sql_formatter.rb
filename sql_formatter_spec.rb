@@ -139,7 +139,7 @@ describe SqlFormatter do
     end
   end
 
-  context 'when handling parentheses' do
+  context 'when handling parenthesis' do
     context 'when handling a subquery list' do
       context 'when subquery comes after `from`' do
         context 'when nesting one level' do
@@ -224,7 +224,7 @@ describe SqlFormatter do
 
       context 'when list is long' do
         let(:query) { 'select * from a where id in (1111111111,2222222222,3333333333,4444444444);' }
-        xit { should eq(expected) }
+        fit { should eq(expected) }
 
         let(:expected) do
           <<~SQL.chomp
