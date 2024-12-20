@@ -1,49 +1,80 @@
-Parenthesis = Struct.new(:token, :is_subquery)
+require 'byebug'
+
+# Fields
+# - token: The word preceding `PAREN_OPEN`
+# - is_subquery: The value following `PAREN_OPEN` is a subquery
+# - is_long_list, The value following `PAREN_OPEN` is a long list of values
+Parenthesis = Struct.new(:token, :is_subquery, :is_long_list)
 
 class SqlFormatter
-  # Characters with simple tokenization logic
+  # Characters
   COMMA = ','
   ESCAPE = '\\'
-  SEMICOLON = ';'
-  SLASH_G = ESCAPE + 'G'
-
-  # Characters with complex tokenization logic
   OPERATORS = %w(! = < >)
   PAREN_CLOSE = ')'
   PAREN_OPEN = '('
   QUOTES = %w(' ")
+  SEMICOLON = ';'
+  SLASH_G = ESCAPE + 'G'
 
-  # Formatting config
+  # Whitespace
   INDENT = '  '
   NEW_LINE = "\n"
 
-  # Break long `SELECT` into multiple lines if over char and comma limits
-  FROM = 'from'
-  SELECT = 'select'
-  SELECT_CHAR_LIMIT = 20
-  SELECT_COMMA_LIMIT = 1
+  # Break long comma-separated value (CSV) into multiple lines, e.g
+  #   ```
+  #   select         # Break long CSV after `SELECT`
+  #     aaaaaaaaaa,
+  #     bbbbbbbbbb
+  #   from a
+  #   where id in (  # Break long CSV inside parenthesis
+  #     1111111111,
+  #     2222222222,
+  #     3333333333,
+  #     4444444444
+  #   )
+  #   ```
+  CHAR_LIMIT = 20
+  COMMA_LIMIT = 1
 
-  # Indent secondary keywords an extra level than primary keywords, e.g
-  #  ```
-  #  from a            # `from` is a primary keyword
-  #  left join b       # `left join` is a primary keyword
-  #    on a.id = b.id  # `on` is a secondary keyword
-  #  where key1 = 1    # `where` is a primary keyword
-  #    and key2 = 2    # `and` is a secondary keyword
-  #  ```
-  JOIN_KEYWORDS = %w(inner left right full outer join) # Can be multi-word
-  PRIMARY_KEYWORDS = JOIN_KEYWORDS +
-    %W(select from where order union #{SEMICOLON} #{SLASH_G})
+  # Keywords used to break long CSV after `SELECT`
+  SELECT = 'select'
+  FROM = 'from'
+
+  # Keyword used to break long CSV inside parenthesis
+  IN = 'in'
+
+  # Keywords used to indent each subquery an extra level
+  QUERYABLE_KEYWORDS = %W(from #{IN})
+
+  # Allow `JOIN_KEYWORDS` to form combination, e.g `left join`
+  JOIN_KEYWORDS = %w(inner left right full outer join)
+
+  # Allow `AND_OR_KEYWORDS` to be sandwitched by parenthesis, e.g `) and (`
   AND_OR_KEYWORDS = %w(and or)
+
+  # Give `PRIMARY_KEYWORDS` their own line, e.g
+  #   ```
+  #   select *
+  #   from a
+  #   ```
+  PRIMARY_KEYWORDS = JOIN_KEYWORDS + %W(
+    #{SELECT} #{FROM} where order union #{SEMICOLON} #{SLASH_G}
+  )
+
+  # Give `SECONDARY_KEYWORDS` their own line and indent an extra level, e.g
+  #   ```
+  #   left join b
+  #     on a.id = b.id  # `on` is a secondary keyword
+  #   where key1 = 1
+  #     and key2 = 2    # `and` is a secondary keyword
+  #   ```
   SECONDARY_KEYWORDS = AND_OR_KEYWORDS + %w(on)
 
-  # Add a level of indentation for each subquery
-  SUBQUERY_KEYWORDS = %w(from in)
-  NOT_SUBQUERY = '<not subquery>'
-
   # Downcase all keywords
-  ALL_KEYWORDS =
-    (PRIMARY_KEYWORDS + SECONDARY_KEYWORDS + SUBQUERY_KEYWORDS).uniq
+  DOWNCASE_KEYWORDS = (
+    QUERYABLE_KEYWORDS + PRIMARY_KEYWORDS + SECONDARY_KEYWORDS
+  ).uniq
 
   attr_reader :tokens
   attr_reader :formatted
@@ -67,18 +98,16 @@ class SqlFormatter
   def tokenize(query)
     tokens = [] # Return value
 
-    # Keep track of open quote and treat the entire quoted value as one token
-    open_quote = nil # Valid states: %w(nil ' ")
-
-    # Holds a quoted value until the next non-quoted value, and vice versa
-    # When switching between the two, flush and process as follows:
-    # - The entirety of a quoted value is treated as a whole token
-    # - Non-quoted values are tokenized by splitting on whitespace
-    # Flush also happens after `OPERATORS`, `COMMA`, `SLASH_G`, etc
+    # Accumulate chars into `buffer` until the next flush event
+    # When flushing a quoted value, flush it as a one token
+    # When flushing a non-quoted value, split it on whitespace
+    # Flush happens when opening/closing a quote and upon special characters
     buffer = ''
 
-    # Accumulate `char` in `buffer`, then flush `buffer` to `tokens`
-    # REMINDER: Avoid nested conditionals; keep it only one level for simplicity
+    # Track when we open/close a quote
+    open_quote = nil # Valid states: %w(nil ' ")
+
+    # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
     chars = query.chars
     chars.each.with_index do |char, index|
       last_char = chars[index - 1]
@@ -95,7 +124,7 @@ class SqlFormatter
       elsif QUOTES.include?(char) && ESCAPE != last_char && open_quote.nil?
         open_quote = char
 
-        concat_downcased_buffer(tokens, buffer)
+        tokens.concat(split_and_downcase(buffer))
         buffer = '' << char
 
       # Treat operator as its own token
@@ -103,7 +132,7 @@ class SqlFormatter
         !OPERATORS.include?(last_char) &&
         open_quote.nil?
 
-        concat_downcased_buffer(tokens, buffer)
+        tokens.concat(split_and_downcase(buffer))
         tokens << char
         buffer = ''
 
@@ -116,185 +145,195 @@ class SqlFormatter
 
       # Treat comma and semicolon as their own tokens
       elsif (COMMA == char || SEMICOLON == char) && open_quote.nil?
-        concat_downcased_buffer(tokens, buffer)
+        tokens.concat(split_and_downcase(buffer))
         tokens << char
         buffer = ''
 
       # Treat slash-g as its own token
       elsif 'G' == char && ESCAPE == last_char && open_quote.nil?
-        tokens.concat(buffer.chop.split)
+        tokens.concat(split_and_downcase(buffer.chop))
         tokens << SLASH_G
         buffer = ''
 
       # Treat parenthesis as their own tokens
       elsif (PAREN_OPEN == char || PAREN_CLOSE == char) && open_quote.nil?
-        concat_downcased_buffer(tokens, buffer)
+        tokens.concat(split_and_downcase(buffer))
         tokens << char
         buffer = ''
 
-      # Accumulate in buffer and wait for the next flush
+      # Accumulate non-special characters until the next flush event
       else
         buffer << char
       end
     end
 
     # Final flush
-    concat_downcased_buffer(tokens, buffer)
+    tokens.concat(split_and_downcase(buffer))
 
     tokens
   end
 
-  def concat_downcased_buffer(tokens, buffer)
-    buffer.split.each do |token|
-      tokens << (ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token)
+  def split_and_downcase(buffer)
+    buffer.split.map do |token|
+      (DOWNCASE_KEYWORDS.include?(token.downcase) ? token.downcase : token)
     end
   end
 
   def format(tokens)
     formatted = '' # Return value
 
-    # States for handling parenthesis
-    paren_stack = [] # Push after `PAREN_OPEN`; pop after `PAREN_CLOSE`
-    indent_level = 0 # Inc after `PAREN_OPEN`; dec before `PAREN_CLOSE`
+    # Break long comma-separated value (CSV) into multiple lines
+    is_long_select = false # Break long long CSV after `SELECT`
+    is_long_list = false # Break long CSV inside parenthesis
+    add_new_line = false # Add a `NEW_LINE` immediately; then after each `COMMA`
 
-    # States for handling long `SELECT`
-    one_column_per_line = false
-    is_new_column = false
+    # Track where we are in the parenthesis stack to add appropriate whitespace
+    paren_stack = [] # An array of `Parenthesis` struct
 
-    # Add formatted `token` to the return value
-    # REMINDER: Avoid nested conditionals; keep it only one level for simplicity
+    # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
     tokens.each.with_index do |token, index|
       last_token = tokens[index - 1]
+      indent_level = paren_stack.select(&:is_subquery).size
 
-      # Break long `SELECT` into multiple lines
-      if one_column_per_line && is_new_column
-        is_new_column = false
+      # Break long CSV into multiple lines
+      if (is_long_select || paren_stack.last&.is_long_list) &&
+        (add_new_line || COMMA == last_token)
+
+        add_new_line = false
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
 
-      # Add `COMMA` without a space
+      # Append `COMMA` without space
       elsif COMMA == token
-        is_new_column = true # Only used when handling long `SELECT`
         formatted << token
 
-      # Add `PAREN_OPEN` with a space when enclosing a list
-      elsif PAREN_OPEN == token && SUBQUERY_KEYWORDS.include?(last_token)
-        indent_level += 1 # Only used when parenthesis encloses a subquery
+      # Append `PAREN_OPEN` with space when preceded by `QUERYABLE_KEYWORDS`
+      elsif PAREN_OPEN == token && QUERYABLE_KEYWORDS.include?(last_token)
         formatted << ' ' << token
 
-      # Add `PAREN_OPEN` without any space (when preceded by a function)
-      elsif PAREN_OPEN == token && !SUBQUERY_KEYWORDS.include?(last_token)
+      # Append `PAREN_OPEN` without space when preceded by a function call(?)
+      elsif PAREN_OPEN == token && !QUERYABLE_KEYWORDS.include?(last_token)
         formatted << token
 
-      # Add token after `PAREN_OPEN` when enclosing a non-subquery list
+      # Append after `PAREN_OPEN` without space when it's a short list
       elsif PAREN_OPEN == last_token &&
-        SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
-        SELECT != token
+        IN == paren_stack.last.token &&
+        !paren_stack.last.is_subquery &&
+        !paren_stack.last.is_long_list
 
-        paren_stack.last.is_subquery = false
         formatted << token
 
-      # Add token after `PAREN_OPEN` (when preceded by a function)
+      # Append after `PAREN_OPEN` without space when it's function arg(?)
       elsif PAREN_OPEN == last_token &&
-        !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
+        !QUERYABLE_KEYWORDS.include?(paren_stack.last.token)
 
         formatted << token
 
-      # Add `PAREN_CLOSE` with a new line when enclosing a subquery list
+      # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a subquery
       elsif PAREN_CLOSE == token &&
-        SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
-        paren_stack.last.is_subquery != false
+        QUERYABLE_KEYWORDS.include?(paren_stack.last.token) &&
+        paren_stack.last.is_subquery
 
-        indent_level -= 1 # Only used when parenthesis encloses a subquery
+        formatted << NEW_LINE << INDENT * (indent_level - 1) << token
+
+      # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a long list
+      elsif PAREN_CLOSE == token &&
+        IN == paren_stack.last.token &&
+        !paren_stack.last.is_subquery &&
+        paren_stack.last.is_long_list
+
         formatted << NEW_LINE << INDENT * indent_level << token
 
-      # Add `PAREN_CLOSE` without any space when enclosing a non-subquery list
+      # Append `PAREN_CLOSE` without space when preceded by a short list
       elsif PAREN_CLOSE == token &&
-        SUBQUERY_KEYWORDS.include?(paren_stack.last.token) &&
-        paren_stack.last.is_subquery == false
-        indent_level -= 1 # Only used when parenthesis encloses a subquery
-        formatted << token
-
-      # Add `PAREN_CLOSE` without any space (when preceded by a function)
-      elsif PAREN_CLOSE == token &&
-        !SUBQUERY_KEYWORDS.include?(paren_stack.last.token)
+        IN == paren_stack.last.token &&
+        !paren_stack.last.is_subquery &&
+        !paren_stack.last.is_long_list
 
         formatted << token
 
-      # Add `AND_OR_KEYWORDS` with a space when preceded by `PAREN_CLOSE`
+      # Append `PAREN_CLOSE` without space when preceded by a function call(?)
+      elsif PAREN_CLOSE == token &&
+        !QUERYABLE_KEYWORDS.include?(paren_stack.last.token)
+
+        formatted << token
+
+      # Append `AND_OR_KEYWORDS` with space when preceded by `PAREN_CLOSE`
       elsif PAREN_CLOSE == last_token && AND_OR_KEYWORDS.include?(token)
         formatted << ' ' << token
 
-      # Add consecutive `JOIN_KEYWORDS` with a space
+      # Append combination `JOIN_KEYWORDS` with space
       elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
         formatted << ' ' << token
 
-      # Add `PRIMARY_KEYWORDS` with normal indentation
+      # Append `PRIMARY_KEYWORDS` with `NEW_LINE`
       elsif PRIMARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
 
-      # Add `SECONDARY_KEYWORDS` with an extra level of indentation
+      # Append `SECONDARY_KEYWORDS` with `NEW_LINE` and indent an extra level
       elsif SECONDARY_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
 
-      # Add anything else with a space
+      # Append everything else with space
       else
         formatted << ' ' << token
       end
 
-      # Set states for handling parenthesis
-      update_paren_stack(paren_stack, tokens, index)
-
-      # Set states for handling long `SELECT`
-      case is_long_select(tokens, index)
-      when true then one_column_per_line = is_new_column = true
-      when false then one_column_per_line = false
+      # Decide if we are breaking long CSV into mulitple lines
+      # And track where we are in the parenthesis stack
+      case tokens[index]
+      when SELECT
+        is_long_select = add_new_line = is_long_csv?(tokens, index)
+      when FROM
+        is_long_select = false
+      when PAREN_OPEN
+        parenthesis = Parenthesis.new(tokens[index - 1])
+        paren_stack.push(parenthesis)
+        parenthesis.is_subquery = SELECT == tokens[index + 1]
+        parenthesis.is_long_list = add_new_line = is_long_csv?(tokens, index)
+      when PAREN_CLOSE
+        paren_stack.pop
       end
     end
 
     formatted.strip
   end
 
-  def update_paren_stack(paren_stack, tokens, index)
-    case tokens[index]
-    when PAREN_OPEN then paren_stack.push(Parenthesis.new(tokens[index - 1]))
-    when PAREN_CLOSE then paren_stack.pop
-    end
-  end
-
-  def is_long_select(tokens, index)
-    return false if FROM == tokens[index] # Deactivate long `select` handling
-    return nil if SELECT != tokens[index] # Continue with current handling
-
+  def is_long_csv?(tokens, index)
     char_count = 0
     comma_count = 0
     paren_count = 0
 
-    # Count chars and commas
+    # Look ahead and count
     ((index + 1)...tokens.size).each do |next_index|
+      # When deciding `is_long_select`, count until the next `FROM`
+      break if FROM == tokens[next_index]
+      # When deciding `is_long_list`, count until the matching `PAREN_CLOSE`
+      break if paren_count < 0
+
+      # Keep track of nested parenthesis to ignore any enclosed `COMMA`
       case tokens[next_index]
-      # Stop when we reach the next `FROM`
-      when FROM then break
-      # Count only `COMMA` outside of parenthesis
       when PAREN_OPEN then paren_count += 1
       when PAREN_CLOSE then paren_count -= 1
-      when COMMA then comma_count += 1 if paren_count == 0
-      # Count all chars (unintentionally ignoring whitespace)
-      else char_count += tokens[next_index].size
+      end
+
+      case tokens[next_index]
+      when COMMA then comma_count += 1 if paren_count == 0 # Count `COMMA`
+      else char_count += tokens[next_index].size # Count chars
       end
     end
 
-    # Activate long `select` handling if over char and comma limits
-    char_count >= SELECT_CHAR_LIMIT && comma_count >= SELECT_COMMA_LIMIT
+    # Check against the limits
+    char_count >= CHAR_LIMIT && comma_count >= COMMA_LIMIT
   end
 end
 
-# If running from specs, stop here
+# If running specs, do not expect CLI input
 return if ARGV.first&.end_with?('sql_formatter_spec.rb')
 
-# Otherwise, process CLI input
+# In case of arg mode
 input = ARGV.join(' ')
 
-# If no argument, enter into interactive mode
+# In case of interactive mode
 if ARGV.empty?
   puts 'Enter a sql query (formatting starts after `;` or `\\G`):'
   puts
@@ -304,7 +343,7 @@ if ARGV.empty?
     input << gets
     break if input.strip.end_with?(';') || input.strip.end_with?('\\G')
   rescue TypeError
-    raise 'Either an argument or interactive input is required.'
+    raise 'CLI input is required!'
   end
 
   puts
@@ -312,9 +351,11 @@ if ARGV.empty?
   puts '>>>>>>'
 end
 
+# Process input
 formatter = SqlFormatter.new(input)
 formatter.run
 
+# Print output
 puts
 puts
 puts formatter.formatted
