@@ -223,8 +223,8 @@ describe SqlFormatter do
       end
 
       context 'when list is long' do
-        let(:query) { 'select * from a where id in (1111111111,2222222222,3333333333,4444444444);' }
-        xit { should eq(expected) }
+        let(:query) { 'select * from a where id in (1111111111,2222222222);' }
+        it { should eq(expected) }
 
         let(:expected) do
           <<~SQL.chomp
@@ -232,9 +232,7 @@ describe SqlFormatter do
             from a
             where id in (
               1111111111,
-              2222222222,
-              3333333333,
-              4444444444
+              2222222222
             )
             ;
           SQL
@@ -311,16 +309,14 @@ describe SqlFormatter do
     context 'when handling long `select`' do
       context 'when long enough' do
         context 'when there is no alias' do
-          let(:query) { 'select aaaaaaaaaa, bbbbbbbbbb, cccccccccc, dddddddddd;' }
+          let(:query) { 'select aaaaaaaaaa, bbbbbbbbbb;' }
           it { should eq(expected) }
 
           let(:expected) do
             <<~SQL.chomp
               select
                 aaaaaaaaaa,
-                bbbbbbbbbb,
-                cccccccccc,
-                dddddddddd
+                bbbbbbbbbb
               ;
             SQL
           end
