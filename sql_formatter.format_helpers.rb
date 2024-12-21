@@ -49,10 +49,8 @@ module FormatHelpers
 
   def set_is_long_select!
     case @f.token
-    when SELECT
-      @f.is_long_select = @f.add_new_line = is_long_csv?
-    when FROM
-      @f.is_long_select = false
+    when SELECT then @f.is_long_select = @f.add_new_line = is_long_csv?(SELECT)
+    when FROM then @f.is_long_select = false
     end
   end
 
@@ -65,7 +63,7 @@ module FormatHelpers
         paren.is_conditional = @f.add_new_line = true
       elsif QUARY_ABLE_KEYWORDS.include?(@f.last_token)
         paren.is_subquery = SELECT == @f.tokens[@f.index + 1]
-        paren.is_long_list = @f.add_new_line = is_long_csv?
+        paren.is_long_list = @f.add_new_line = is_long_csv?(PAREN_OPEN)
         paren.is_short_list = (!paren.is_subquery && !paren.is_long_list)
       end
 
@@ -75,31 +73,35 @@ module FormatHelpers
     end
   end
 
-  def is_long_csv?
+  def is_long_csv?(token)
     char_count = 0
     comma_count = 0
     paren_count = 0
 
     # Count ahead
     ((@f.index + 1)...@f.tokens.size).each do |next_index|
-      # Count until the next `FROM` to decide `is_long_select`
-      break if FROM == @f.tokens[next_index]
-      # Count until the matching `PAREN_CLOSE` to decide `is_long_list`
-      break if paren_count < 0
+      next_token = @f.tokens[next_index]
+
+      # Count only 1) `SELECT...FROM` and 2) between matching parenthesis
+      case token
+      when SELECT then break if FROM == next_token
+      when PAREN_OPEN then break if paren_count < 0
+      end
 
       # Keep track of nested parenthesis and ignore any enclosed `COMMA`
-      case @f.tokens[next_index]
+      case next_token
       when PAREN_OPEN then paren_count += 1
       when PAREN_CLOSE then paren_count -= 1
       end
 
-      case @f.tokens[next_index]
-      when COMMA then comma_count += 1 if paren_count == 0 # Count `COMMA`
-      else char_count += @f.tokens[next_index].size # Count chars
+      # Count chars and unnested commas
+      case next_token
+      when COMMA then comma_count += 1 if paren_count == 0
+      else char_count += next_token.size
       end
     end
 
-    # Compare counts to the limits
+    # Compare counts to limits
     char_count >= CHAR_LIMIT && comma_count >= COMMA_LIMIT
   end
 end

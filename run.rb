@@ -14,7 +14,7 @@ if ARGV.empty?
     input << gets
     break if input.strip.end_with?(';') || input.strip.end_with?('\\G')
   rescue TypeError
-    raise 'CLI input is required!'
+    raise '(This file cannot run from TextMate as CLI input is required)'
   end
 
   puts

@@ -96,7 +96,7 @@ class SqlFormatter
   end
 
   def format(tokens)
-    # A set of instance vars shared by only this method and its helpers
+    # A set of instance vars accessed by only this method and its helpers
     # It was created to enable calling helpers without passing long params
     # It was intentionally namespaced to one instance var to keep it contained
     # It was intentionally named one-letter to avoid exceeding line length limit

@@ -13,7 +13,7 @@ module Constants
   SEMICOLON = ';'
   SLASH_G = ESCAPE + 'G'
 
-  # Tokenize `SIMPLE_CHARS` without special handling
+  # Tokenize `SIMPLE_CHARS` as-is
   SIMPLE_CHARS = OPERATORS + %W(
     #{COMMA} #{SEMICOLON} #{PAREN_OPEN} #{PAREN_CLOSE}
   )
@@ -31,7 +31,7 @@ module Constants
   #     aaaaaaaaaa,
   #     bbbbbbbbbb
   #   from a
-  #   where id in (  # Break long CSV `IN` parenthesis
+  #   where id in (  # Break long CSV after `PAREN_OPEN`
   #     1111111111,
   #     2222222222,
   #     3333333333,
