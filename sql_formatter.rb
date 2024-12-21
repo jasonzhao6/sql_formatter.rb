@@ -62,9 +62,6 @@ class SqlFormatter
   #   ```
   PAREN_ABLE_KEYWORDS = %W(#{FROM} #{WHERE} #{AND} #{OR} in)
 
-  # Allow `AND_OR_KEYWORDS` to be sandwitched by parenthesis, e.g `) and (`
-  AND_OR_KEYWORDS = %W(#{AND} #{OR})
-
   # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
   JOIN_KEYWORDS = %w(inner left right full outer join)
 
@@ -238,10 +235,6 @@ class SqlFormatter
       # Append `PAREN_CLOSE` without space when preceded by a function call(?)
       elsif PAREN_CLOSE == token
         formatted << token
-
-      # Append `AND_OR_KEYWORDS` with space when preceded by `PAREN_CLOSE`
-      elsif PAREN_CLOSE == last_token && AND_OR_KEYWORDS.include?(token)
-        formatted << ' ' << token
 
       # Combine `JOIN_KEYWORDS` with space
       elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)

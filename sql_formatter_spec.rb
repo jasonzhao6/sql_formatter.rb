@@ -209,7 +209,8 @@ describe SqlFormatter do
             where id in (
               select id
               from b
-            ) or token in (
+            )
+            or token in (
               select token
               from c
             )
@@ -255,7 +256,8 @@ describe SqlFormatter do
             where (
               a = 1
               and b = 2
-            ) or c = 3
+            )
+            or c = 3
             ;
           SQL
         end
@@ -309,7 +311,8 @@ describe SqlFormatter do
             or (
               b = 2
               and c = 3
-            ) or (
+            )
+            or (
               d = 4
               and e = 5
             )
@@ -331,7 +334,8 @@ describe SqlFormatter do
               (
                 b = 2
                 or c = 3
-              ) and (
+              )
+              and (
                 d = 4
                 or e = 5
               )
