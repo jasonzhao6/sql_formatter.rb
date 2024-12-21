@@ -8,7 +8,7 @@ Parenthesis = Struct.new(
   # The token preceding `PAREN_OPEN`
   :token,
 
-  # The type of enclosed value
+  # The type of value following `PAREN_OPEN`
   :is_conditional,
   :is_subquery,
   :is_long_list,
@@ -18,7 +18,7 @@ Parenthesis = Struct.new(
 module FormatHelpers
   include Constants
 
-  # REMINDER for `#append_*`: For simplicity and readability-
+  # Reminder for `#append_*`: For simplicity and readability-
   # - Keep it flat, no nested `if` statements
   # - Keep it short, dedupe as much as possible
   # - Keep it concise, drop redundant conditions
@@ -89,7 +89,6 @@ module FormatHelpers
     comma_count = 0
     paren_count = 0
 
-    # Count ahead
     start_token = tokens[index]
     ((index + 1)...tokens.size).each do |next_index|
       next_token = tokens[next_index]
@@ -113,7 +112,45 @@ module FormatHelpers
       end
     end
 
-    # Compare counts to limits
+    # Are we over min thresholds?
     char_count >= CHAR_MIN && comma_count >= COMMA_MIN
+  end
+
+  def is_multi_join?(tokens)
+    join_counts = [] # Structure: `join_counts[paren_count] = <count>`
+    paren_count = 0
+    max_join_count = 0
+
+    # Init root level count outside of any parenthesis
+    join_counts[0] = 0
+
+    tokens.each.with_index do |token, index|
+      # Keep track of nested parenthesis
+      case token
+      when PAREN_OPEN
+        paren_count += 1
+
+        # Init current level count when opening a parenthesis
+        join_counts[paren_count] = 0
+      when PAREN_CLOSE
+        paren_count -= 1
+
+        # Update `max_join_count` when closing a parenthesis
+        if max_join_count < join_counts[paren_count]
+          max_join_count = join_counts[paren_count]
+        end
+      end
+
+      # Count `JOIN` on the current parenthesis level
+      join_counts[paren_count] += 1 if JOIN == token
+    end
+
+    # Update `max_join_count` with root level count
+    if max_join_count < join_counts[0]
+      max_join_count = join_counts[0]
+    end
+
+    # Are we over min threshold?
+    max_join_count >= JOIN_MIN
   end
 end

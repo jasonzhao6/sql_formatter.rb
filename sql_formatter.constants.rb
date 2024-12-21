@@ -3,7 +3,7 @@ module Constants
   INDENT = '  '
   NEW_LINE = "\n"
 
-  # Break long comma-separated value (CSV) into multiple lines, e.g
+  # Config: Break long comma-separated value (CSV) into multiple lines, e.g
   #   ```
   #   select         # Break long CSV after `SELECT`
   #     aaaaaaaaaa,
@@ -16,7 +16,25 @@ module Constants
   #     4444444444
   #   ```
   CHAR_MIN = 20
-  COMMA_MIN = 1
+  COMMA_MIN = 1 # Note: N `COMMA` means N + 1 items
+
+  # Config: Append with extra `NEW_LINE` in case of multiple `JOIN`, e.g
+  #   ```
+  #   select *
+  #
+  #   from a          # ^ Extra `NEW_LINE`
+  #
+  #   join b          # ^ Extra `NEW_LINE`
+  #   on a.id = b.id
+  #
+  #   join c          # ^ Extra `NEW_LINE`
+  #   on b.id = c.id
+  #
+  #   where c.id = 1  # ^ Extra `NEW_LINE`
+  #
+  #   ;               # ^ Extra `NEW_LINE`
+  #   ```
+  JOIN_MIN = 2
 
   # Individually referenced chars
   COMMA = ','
@@ -36,6 +54,7 @@ module Constants
   # Individually referenced keywords
   SELECT = 'select'
   FROM = 'from'
+  JOIN = 'join'
   WHERE = 'where'
   AND = 'and'
   OR = 'or'
@@ -59,13 +78,14 @@ module Constants
   PAREN_ABLE_KEYWORDS = CONDITIONAL_KEYWORDS + QUARY_ABLE_KEYWORDS
 
   # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
-  JOIN_KEYWORDS = %w(inner left right full outer join)
+  JOIN_KEYWORDS = %W(inner left right full outer #{JOIN})
 
-  # Give `NEW_LINE_KEYWORDS` their own lines
-  NEW_LINE_KEYWORDS = JOIN_KEYWORDS + %W(
+  # Append `NEW_LINE_KEYWORDS` with `NEW_LINE`
+  # Append `NEW_LINES_KEYWORDS` with extra `NEW_LINE` in case of multiple `JOIN`
+  NEW_LINES_KEYWORDS = JOIN_KEYWORDS + %W(
     #{SELECT} #{FROM} #{WHERE} order union #{SEMICOLON} #{SLASH_G}
-    #{AND} #{OR} on
   )
+  NEW_LINE_KEYWORDS = NEW_LINES_KEYWORDS + %W(#{AND} #{OR} on)
 
   # Collect all keywords here
   ALL_KEYWORDS = NEW_LINE_KEYWORDS + %w(in)

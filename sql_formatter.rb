@@ -1,5 +1,6 @@
 require_relative 'sql_formatter.constants'
 require_relative 'sql_formatter.format_helpers'
+require 'byebug'
 require 'ostruct'
 
 class SqlFormatter
@@ -37,7 +38,7 @@ class SqlFormatter
     # Track when we open/close a quote
     open_quote = nil # Valid values: %w(nil ' ")
 
-    # REMINDER: For simplicity and readability-
+    # Reminder: For simplicity and readability-
     # - Keep it flat, no nested `if` statements
     # - Keep it short, dedupe as much as possible
     # - Keep it concise, drop redundant conditions
@@ -98,14 +99,19 @@ class SqlFormatter
   def format(tokens)
     formatted = '' # Return value
 
-    # Break long `SELECT`, list, and compound conditions into multiple lines
+    # Break long `SELECT` into multiple lines
     is_long_select = false
-    add_new_line = false
 
-    # Track where we are in the parenthesis stack to apply correct formatting
+    # Inside nested parenthesis, handle compound conditions, subquery, and lists
     paren_stack = []
 
-    # REMINDER: For simplicity and readability-
+    # Long `SELECT`, list, and compound conditions need an initial `NEW_LINE`
+    add_initial_new_line = false
+
+    # Append with extra `NEW_LINE` in case of multiple `JOIN`
+    is_multi_join = is_multi_join?(tokens)
+
+    # Reminder: For simplicity and readability-
     # - Keep it flat, no nested `if` statements
     # - Keep it short, dedupe as much as possible
     # - Keep it concise, drop redundant conditions
@@ -116,15 +122,15 @@ class SqlFormatter
       end.size
 
       # Break compound conditions into multiple lines
-      if paren_stack.last&.is_conditional && add_new_line
-        add_new_line = false
+      if paren_stack.last&.is_conditional && add_initial_new_line
+        add_initial_new_line = false
         formatted << NEW_LINE << INDENT * indent_level << token
 
       # Break long `SELECT` and list into multiple lines
       elsif (is_long_select || paren_stack.last&.is_long_list) &&
-        (add_new_line || COMMA == last_token)
+        (add_initial_new_line || COMMA == last_token)
 
-        add_new_line = false
+        add_initial_new_line = false
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
 
       # Append `PAREN_OPEN` via helper; there are multiple sub-conditions
@@ -143,6 +149,13 @@ class SqlFormatter
       elsif COMMA == token
         formatted << token
 
+      # Append with `NEW_LINE * 2`, unless combining consecutive `JOIN_KEYWORDS`
+      elsif is_multi_join &&
+        NEW_LINES_KEYWORDS.include?(token) &&
+        !JOIN_KEYWORDS.include?(last_token) &&
+
+        formatted << NEW_LINE * 2 << INDENT * indent_level << token
+
       # Append with `NEW_LINE`, unless combining consecutive `JOIN_KEYWORDS`
       elsif NEW_LINE_KEYWORDS.include?(token) &&
         !JOIN_KEYWORDS.include?(last_token)
@@ -155,17 +168,17 @@ class SqlFormatter
       end
 
       case is_long_select?(tokens, index)
-      when true then is_long_select = add_new_line = true
+      when true then is_long_select = add_initial_new_line = true
       when false then is_long_select = false
-      when nil # Maintain current states
+      when nil # Maintain current `is_long_select` state
       end
 
       update_paren_stack!(paren_stack, tokens, index)
       if PAREN_OPEN == token &&
         (paren_stack.last.is_conditional || paren_stack.last.is_long_list)
 
-        add_new_line = true
-      else # Maintain current states
+        add_initial_new_line = true
+      else # Maintain current `is_conditional/is_long_list` states
       end
     end
 

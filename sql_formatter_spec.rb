@@ -475,5 +475,79 @@ describe SqlFormatter do
         end
       end
     end
+
+    context 'when handling multiple joins' do
+      context 'when there are consecutive joins' do
+        let(:query) { 'select a.id from a left join b on a.id = b.id left join c on a.id = c.id;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select a.id
+
+            from a
+
+            left join b
+            on a.id = b.id
+
+            left join c
+            on a.id = c.id
+
+            ;
+          SQL
+        end
+      end
+
+      context 'when there are nested single joins' do
+        let(:query) { 'select a.id from ( select c.id from c left join d on c.id = d.id ) left join b on a.id = b.id ;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select a.id
+            from (
+              select c.id
+              from c
+              left join d
+              on c.id = d.id
+            )
+            left join b
+            on a.id = b.id
+            ;
+          SQL
+        end
+      end
+
+      context 'when there are nested consecutive joins' do
+        let(:query) { 'select a.id from ( select d.id from d left join e on d.id = e.id left join f on d.id = f.id ) left join b on a.id = b.id left join c on a.id = c.id ;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select a.id
+
+            from (
+              select d.id
+
+              from d
+
+              left join e
+              on d.id = e.id
+
+              left join f
+              on d.id = f.id
+            )
+
+            left join b
+            on a.id = b.id
+
+            left join c
+            on a.id = c.id
+
+            ;
+          SQL
+        end
+      end
+    end
   end
 end
