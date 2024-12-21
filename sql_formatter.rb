@@ -1,7 +1,11 @@
 require 'byebug'
 
 class SqlFormatter
-  # Characters
+  # Whitespace to add
+  INDENT = '  '
+  NEW_LINE = "\n"
+
+  # Characters individually referenced
   COMMA = ','
   ESCAPE = '\\'
   OPERATORS = %w(! = < >)
@@ -11,11 +15,7 @@ class SqlFormatter
   SEMICOLON = ';'
   SLASH_G = ESCAPE + 'G'
 
-  # Whitespace
-  INDENT = '  '
-  NEW_LINE = "\n"
-
-  # Keywords
+  # Keywords individually referenced
   SELECT = 'select'
   FROM = 'from'
   WHERE = 'where'
