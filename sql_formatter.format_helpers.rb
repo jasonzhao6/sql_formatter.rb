@@ -1,11 +1,15 @@
+#
+# This file contains helper methods called by `#format`
+#
+
 require_relative 'sql_formatter.constants'
 
 Parenthesis = Struct.new(
   :token, # The token preceding `PAREN_OPEN`
+  :is_conditional, # The enclosed value is a conditional
   :is_subquery, # The enclosed value is a subquery
   :is_long_list, # The enclosed value is a long list
   :is_short_list, # The enclosed value is a short list
-  :is_conditional # The enclosed value is a conditional
 )
 
 module FormatHelpers
@@ -15,75 +19,80 @@ module FormatHelpers
   # - Keep it flat, no nested `if` statements
   # - Keep it short, dedupe as much as possible
   # - Keep it concise, drop redundant conditions
-  def append_paren_open!
+  def append_paren_open!(formatted, token, last_token)
     # Append with space when preceded by `PAREN_ABLE_KEYWORDS`
-    if PAREN_ABLE_KEYWORDS.include?(@f.last_token)
-      @f.formatted << ' ' << @f.token
+    if PAREN_ABLE_KEYWORDS.include?(last_token)
+      formatted << ' ' << token
     else
-      @f.formatted << @f.token
+      formatted << token
     end
   end
 
-  def append_after_paren_open!
+  def append_after_paren_open!(formatted, token, paren_stack, indent_level)
     # Append with `NEW_LINE` when it's a subquery
-    if @f.paren_stack.last.is_subquery
-      @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
+    if paren_stack.last.is_subquery
+      formatted << NEW_LINE << INDENT * indent_level << token
     else
-      @f.formatted << @f.token
+      formatted << token
     end
   end
 
-  def append_paren_close!
-    # Append with `NEW_LINE` when preceded by a subquery or conditional
-    if @f.paren_stack.last.is_subquery || @f.paren_stack.last.is_conditional
-      @f.formatted << NEW_LINE << INDENT * (@f.indent_level - 1) << @f.token
+  def append_paren_close!(formatted, token, paren_stack, indent_level)
+    # Append with `NEW_LINE` when preceded by a conditional or subquery
+    if paren_stack.last.is_conditional || paren_stack.last.is_subquery
+      formatted << NEW_LINE << INDENT * (indent_level - 1) << token
 
     # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a long list
-    elsif @f.paren_stack.last.is_long_list
-      @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
+    elsif paren_stack.last.is_long_list
+      formatted << NEW_LINE << INDENT * indent_level << token
 
     else
-      @f.formatted << @f.token
+      formatted << token
     end
   end
 
-  def set_is_long_select!
-    case @f.token
-    when SELECT then @f.is_long_select = @f.add_new_line = is_long_csv?(SELECT)
-    when FROM then @f.is_long_select = false
+  def is_long_select?(tokens, index)
+    case tokens[index]
+    when SELECT then is_long_csv?(tokens, index)
+    when FROM then false
     end
   end
 
-  def update_paren_stack!
-    case @f.token
+  def update_paren_stack!(paren_stack, tokens, index)
+    token = tokens[index]
+    last_token = tokens[index - 1]
+    next_token = tokens[index + 1]
+
+    case token
     when PAREN_OPEN
-      paren = Parenthesis.new(@f.last_token)
+      paren = Parenthesis.new(last_token)
 
-      if CONDITIONAL_KEYWORDS.include?(@f.last_token)
-        paren.is_conditional = @f.add_new_line = true
-      elsif QUARY_ABLE_KEYWORDS.include?(@f.last_token)
-        paren.is_subquery = SELECT == @f.tokens[@f.index + 1]
-        paren.is_long_list = @f.add_new_line = is_long_csv?(PAREN_OPEN)
-        paren.is_short_list = (!paren.is_subquery && !paren.is_long_list)
+      if CONDITIONAL_KEYWORDS.include?(last_token)
+        paren.is_conditional = true
+      elsif QUARY_ABLE_KEYWORDS.include?(last_token)
+        paren.is_subquery = SELECT == next_token
+        paren.is_long_list = is_long_csv?(tokens, index)
+        paren.is_short_list = !paren.is_subquery && !paren.is_long_list
       end
 
-      @f.paren_stack.push(paren)
+      paren_stack.push(paren)
     when PAREN_CLOSE
-      @f.paren_stack.pop
+      paren_stack.pop
     end
   end
 
-  def is_long_csv?(token)
+  def is_long_csv?(tokens, index)
     char_count = 0
     comma_count = 0
     paren_count = 0
 
     # Count ahead
-    ((@f.index + 1)...@f.tokens.size).each do |next_index|
-      next_token = @f.tokens[next_index]
+    start_token = tokens[index]
+    ((index + 1)...tokens.size).each do |next_index|
+      next_token = tokens[next_index]
 
       # Count only 1) `SELECT...FROM` and 2) between matching parenthesis
-      case token
+      case start_token
       when SELECT then break if FROM == next_token
       when PAREN_OPEN then break if paren_count < 0
       end

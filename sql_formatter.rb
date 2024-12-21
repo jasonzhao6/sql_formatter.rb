@@ -96,85 +96,79 @@ class SqlFormatter
   end
 
   def format(tokens)
-    # A set of instance vars accessed by only this method and its helpers
-    # It was created to enable calling helpers without passing long params
-    # It was intentionally namespaced to one instance var to keep it contained
-    # It was intentionally named one-letter to avoid exceeding line length limit
-    @f = OpenStruct.new.tap do |f|
-      f.tokens = tokens # Arg
-      f.formatted = '' # Return value
+    formatted = '' # Return value
 
-      # Break long `SELECT`, list, and compound conditions into multiple lines
-      f.is_long_select = false
-      f.add_new_line = false
+    # Break long `SELECT`, list, and compound conditions into multiple lines
+    is_long_select = false
+    add_new_line = false
 
-      # Track where we are in the parenthesis stack to apply correct formatting
-      f.paren_stack = []
-
-      # Iteration vars to be set
-      f.token = nil
-      f.index = nil
-      f.last_token = nil
-      f.indent_level = nil
-    end
+    # Track where we are in the parenthesis stack to apply correct formatting
+    paren_stack = []
 
     # REMINDER: For simplicity and readability-
     # - Keep it flat, no nested `if` statements
     # - Keep it short, dedupe as much as possible
     # - Keep it concise, drop redundant conditions
-    @f.tokens.each.with_index do |token, index|
-      # Set iteration vars
-      @f.token = token
-      @f.index = index
-      @f.last_token = @f.tokens[@f.index - 1]
-      @f.indent_level = @f.paren_stack.select do |paren|
-        paren.is_subquery || paren.is_conditional
+    tokens.each.with_index do |token, index|
+      last_token = tokens[index - 1]
+      indent_level = paren_stack.select do |paren|
+        paren.is_conditional || paren.is_subquery
       end.size
 
-      # Break long `SELECT` and list into multiple lines
-      if (@f.is_long_select || @f.paren_stack.last&.is_long_list) &&
-        (@f.add_new_line || COMMA == @f.last_token)
-
-        @f.add_new_line = false
-        @f.formatted << NEW_LINE << INDENT * (@f.indent_level + 1) << @f.token
-
       # Break compound conditions into multiple lines
-      elsif @f.paren_stack.last&.is_conditional && @f.add_new_line
-        @f.add_new_line = false
-        @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
+      if paren_stack.last&.is_conditional && add_new_line
+        add_new_line = false
+        formatted << NEW_LINE << INDENT * indent_level << token
+
+      # Break long `SELECT` and list into multiple lines
+      elsif (is_long_select || paren_stack.last&.is_long_list) &&
+        (add_new_line || COMMA == last_token)
+
+        add_new_line = false
+        formatted << NEW_LINE << INDENT * (indent_level + 1) << token
 
       # Append `PAREN_OPEN` via helper; there are multiple sub-conditions
-      elsif PAREN_OPEN == @f.token
-        append_paren_open!
+      elsif PAREN_OPEN == token
+        append_paren_open!(formatted, token, last_token)
 
       # Append after `PAREN_OPEN` via helper; there are multiple sub-conditions
-      elsif PAREN_OPEN == @f.last_token
-        append_after_paren_open!
+      elsif PAREN_OPEN == last_token
+        append_after_paren_open!(formatted, token, paren_stack, indent_level)
 
       # Append `PAREN_CLOSE` via helper; there are multiple sub-conditions
-      elsif PAREN_CLOSE == @f.token
-        append_paren_close!
+      elsif PAREN_CLOSE == token
+        append_paren_close!(formatted, token, paren_stack, indent_level)
 
       # Append `COMMA` without space
-      elsif COMMA == @f.token
-        @f.formatted << @f.token
+      elsif COMMA == token
+        formatted << token
 
       # Append with `NEW_LINE`, unless combining consecutive `JOIN_KEYWORDS`
-      elsif NEW_LINE_KEYWORDS.include?(@f.token) &&
-        !JOIN_KEYWORDS.include?(@f.last_token)
+      elsif NEW_LINE_KEYWORDS.include?(token) &&
+        !JOIN_KEYWORDS.include?(last_token)
 
-        @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
+        formatted << NEW_LINE << INDENT * indent_level << token
 
       # Append everything else with space
       else
-        @f.formatted << ' ' << @f.token
+        formatted << ' ' << token
       end
 
-      # End of iteration tasks
-      set_is_long_select!
-      update_paren_stack!
+      case is_long_select?(tokens, index)
+      when true then is_long_select = add_new_line = true
+      when false then is_long_select = false
+      when nil # Maintain current states
+      end
+
+      update_paren_stack!(paren_stack, tokens, index)
+      if PAREN_OPEN == token &&
+        (paren_stack.last.is_conditional || paren_stack.last.is_long_list)
+
+        add_new_line = true
+      else # Maintain current states
+      end
     end
 
-    @f.formatted.strip # Strip leading `NEW_LINE`
+    formatted.strip # Strip leading `NEW_LINE`
   end
 end
