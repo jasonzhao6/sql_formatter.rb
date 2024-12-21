@@ -143,7 +143,7 @@ describe SqlFormatter do
   end
 
   context 'when handling parenthesis' do
-    context 'when handling a subquery list' do
+    context 'when handling a subquery' do
       context 'when subquery comes after `from`' do
         context 'when nesting one level' do
           let(:query) { 'select * from (select * from a); ' }
@@ -220,7 +220,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when handling a non-subquery list' do
+    context 'when handling a list' do
       context 'when list is short' do
         let(:query) { 'select * from a where id in (1,2,3,4);' }
         it { should eq("select *\nfrom a\nwhere id in (1, 2, 3, 4)\n;") }
@@ -346,7 +346,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when calling function' do
+    context 'when calling a function' do
       context 'when calling one function' do
         let(:query) { 'select distinct(`group`) from sysconfig;' }
         it { should eq(expected) }
@@ -360,7 +360,7 @@ describe SqlFormatter do
         end
       end
 
-      context 'when calling two functions' do
+      context 'when calling nested functions' do
         let(:query) { "select upper(concat('hello', ' ', 'world'));" }
         it { should eq(expected) }
 
@@ -375,7 +375,7 @@ describe SqlFormatter do
   end
 
   context 'when handling keywords' do
-    context 'when handling keywords that get new line' do
+    context 'when handling keywords that get their own line' do
       let(:query) { 'select * from a join b on a.id = b.id where a.id = 1 and a.id != 2 or a.id = 3 order by 1;' }
       it { should eq(expected) }
 
