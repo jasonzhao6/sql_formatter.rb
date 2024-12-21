@@ -1,3 +1,6 @@
+# TODO
+ 
+
 require './sql_formatter'
 require 'rspec'
 
@@ -233,6 +236,105 @@ describe SqlFormatter do
             where id in (
               1111111111,
               2222222222
+            )
+            ;
+          SQL
+        end
+      end
+    end
+
+    xcontext 'when handling compound conditions' do
+      context 'when it comes after `where`' do
+        let(:query) { 'select * from a where (a = 1 and b = 2) or c = 3;' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where (
+              a = 1
+              and b = 2
+            ) or c = 3
+            ;
+          SQL
+        end
+      end
+
+      context 'when it comes after `and`' do
+        let(:query) { 'select * from a where a = 1 and (b = 2 or c = 3);' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where a = 1
+            and (
+              b = 2
+              or c = 3
+            )
+            ;
+          SQL
+        end
+      end
+
+      context 'when it comes after `or`' do
+        let(:query) { 'select * from a where a = 1 or (b = 2 and c = 3);' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where a = 1
+            or (
+              b = 2
+              and c = 3
+            )
+            ;
+          SQL
+        end
+      end
+
+      context 'when it comes twice' do
+        let(:query) { 'select * from a where a = 1 or (b = 2 and c = 3) or (d = 4 and e = 5);' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where a = 1
+            or (
+              b = 2
+              and c = 3
+            ) or (
+              d = 4
+              and e = 5
+            )
+            ;
+          SQL
+        end
+      end
+
+      context 'when it comes nested' do
+        let(:query) { 'select * from a where a = 1 or ((b = 2 or c = 3) and (d = 4 or e = 5));' }
+        it { should eq(expected) }
+
+        let(:expected) do
+          <<~SQL.chomp
+            select *
+            from a
+            where a = 1
+            or (
+              (
+                b = 2
+                or c = 3
+              ) and (
+                d = 4
+                or e = 5
+              )
             )
             ;
           SQL
