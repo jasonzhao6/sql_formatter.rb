@@ -53,8 +53,8 @@ class SqlFormatter
   #     and d = 4
   #   )
   #   ```
-  CONDITIONAL_KEYWORDS = %W(#{WHERE} #{AND} #{OR}) # Followed by conditions
-  QUARY_ABLE_KEYWORDS = %W(#{FROM} in) # Followed by subquery or list
+  CONDITIONAL_KEYWORDS = %W(#{WHERE} #{AND} #{OR} #{PAREN_OPEN})
+  QUARY_ABLE_KEYWORDS = %W(#{FROM} in) # Followed by either subquery or list
   PAREN_ABLE_KEYWORDS = CONDITIONAL_KEYWORDS + QUARY_ABLE_KEYWORDS
 
   # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
@@ -186,7 +186,9 @@ class SqlFormatter
     # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
     tokens.each.with_index do |token, index|
       last_token = tokens[index - 1]
-      indent_level = paren_stack.select(&:is_subquery).size
+      indent_level = paren_stack.select do |paren|
+        paren.is_subquery || paren.is_conditional
+      end.size
 
       # Break long CSV into multiple lines
       if (is_long_select || paren_stack.last&.is_long_list) &&
@@ -194,6 +196,11 @@ class SqlFormatter
 
         add_new_line = false
         formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+
+      # Break compound conditional into multiple lines
+      elsif paren_stack.last&.is_conditional && add_new_line
+        add_new_line = false
+        formatted << NEW_LINE << INDENT * indent_level << token
 
       # Append `COMMA` without space
       elsif COMMA == token
@@ -227,6 +234,10 @@ class SqlFormatter
       elsif PAREN_CLOSE == token && paren_stack.last.is_short_list
         formatted << token
 
+      # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a conditional
+      elsif PAREN_CLOSE == token && paren_stack.last.is_conditional
+        formatted << NEW_LINE << INDENT * (indent_level - 1) << token
+
       # Append `PAREN_CLOSE` without space when preceded by a function call(?)
       elsif PAREN_CLOSE == token
         formatted << token
@@ -255,7 +266,7 @@ class SqlFormatter
         paren = Parenthesis.new(last_token)
 
         if CONDITIONAL_KEYWORDS.include?(last_token)
-          paren.is_conditional = true
+          paren.is_conditional = add_new_line = true
         elsif QUARY_ABLE_KEYWORDS.include?(last_token)
           paren.is_subquery = SELECT == tokens[index + 1]
           paren.is_long_list = add_new_line = is_long_csv?(tokens, index)

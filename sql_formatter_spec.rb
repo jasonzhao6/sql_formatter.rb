@@ -244,7 +244,7 @@ describe SqlFormatter do
       end
     end
 
-    xcontext 'when handling compound conditions' do
+    context 'when handling compound conditions' do
       context 'when it comes after `where`' do
         let(:query) { 'select * from a where (a = 1 and b = 2) or c = 3;' }
         it { should eq(expected) }
