@@ -1,12 +1,5 @@
 require 'byebug'
 
-# Fields
-# - token: The word preceding `PAREN_OPEN`
-# - is_subquery: The value following `PAREN_OPEN` is a subquery
-# - is_long_list: The value following `PAREN_OPEN` is a long list of values
-# - is_short_list: The value following `PAREN_OPEN` is a short list of values
-Parenthesis = Struct.new(:token, :is_subquery, :is_long_list, :is_short_list)
-
 class SqlFormatter
   # Characters
   COMMA = ','
@@ -60,7 +53,9 @@ class SqlFormatter
   #     and d = 4
   #   )
   #   ```
-  PAREN_ABLE_KEYWORDS = %W(#{FROM} #{WHERE} #{AND} #{OR} in)
+  CONDITIONAL_KEYWORDS = %W(#{WHERE} #{AND} #{OR}) # Followed by conditions
+  QUARY_ABLE_KEYWORDS = %W(#{FROM} in) # Followed by subquery or list
+  PAREN_ABLE_KEYWORDS = CONDITIONAL_KEYWORDS + QUARY_ABLE_KEYWORDS
 
   # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
   JOIN_KEYWORDS = %w(inner left right full outer join)
@@ -257,14 +252,17 @@ class SqlFormatter
       when FROM
         is_long_select = false
       when PAREN_OPEN
-        parenthesis = Parenthesis.new(tokens[index - 1])
-        parenthesis.is_subquery = SELECT == tokens[index + 1]
-        parenthesis.is_long_list = add_new_line = is_long_csv?(tokens, index)
-        parenthesis.is_short_list = (
-          !parenthesis.is_subquery && !parenthesis.is_long_list
-        )
+        paren = Parenthesis.new(last_token)
 
-        paren_stack.push(parenthesis)
+        if CONDITIONAL_KEYWORDS.include?(last_token)
+          paren.is_conditional = true
+        elsif QUARY_ABLE_KEYWORDS.include?(last_token)
+          paren.is_subquery = SELECT == tokens[index + 1]
+          paren.is_long_list = add_new_line = is_long_csv?(tokens, index)
+          paren.is_short_list = (!paren.is_subquery && !paren.is_long_list)
+        end
+
+        paren_stack.push(paren)
       when PAREN_CLOSE
         paren_stack.pop
       end
@@ -301,6 +299,14 @@ class SqlFormatter
     char_count >= CHAR_LIMIT && comma_count >= COMMA_LIMIT
   end
 end
+
+Parenthesis = Struct.new(
+  :token, # The token preceding `PAREN_OPEN`
+  :is_subquery, # The enclosed value is a subquery
+  :is_long_list, # The enclosed value is a long CSV
+  :is_short_list, # The enclosed value is a short CSV
+  :is_conditional # The enclosed value is a conditional
+)
 
 # If running specs, do not expect CLI input
 return if ARGV.first&.end_with?('sql_formatter_spec.rb')
