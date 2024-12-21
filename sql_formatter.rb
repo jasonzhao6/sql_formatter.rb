@@ -41,20 +41,22 @@ class SqlFormatter
   # Allow `PAREN_ABLE_KEYWORDS` to be followed by parenthesis, e.g
   #   ```
   #   select *
-  #   from (       # Followed by subquery
-  #     select *
-  #     from a
-  #   )
-  #   where (      # Followed by compound conditions
+  #   from a
+  #   where (       # Followed by compound conditions
   #     a = 1
   #     and b = 2
-  #   ) or (
-  #     c = 3
-  #     and d = 4
+  #   ) or id in (  # Followed by subquery
+  #     select id
+  #     from b
+  #   ) or id in (  # Followed by list
+  #     1111111111,
+  #     2222222222,
+  #     3333333333,
+  #     4444444444
   #   )
   #   ```
   CONDITIONAL_KEYWORDS = %W(#{WHERE} #{AND} #{OR} #{PAREN_OPEN})
-  QUARY_ABLE_KEYWORDS = %W(#{FROM} in) # Followed by either subquery or list
+  QUARY_ABLE_KEYWORDS = %W(#{FROM} in) # Followed by subquery or list
   PAREN_ABLE_KEYWORDS = CONDITIONAL_KEYWORDS + QUARY_ABLE_KEYWORDS
 
   # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
@@ -98,7 +100,7 @@ class SqlFormatter
     buffer = ''
 
     # Track when we open/close a quote
-    open_quote = nil # Valid states: %w(nil ' ")
+    open_quote = nil # Valid values: %w(nil ' ")
 
     # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
     chars = query.chars
