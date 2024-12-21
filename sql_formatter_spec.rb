@@ -371,25 +371,7 @@ describe SqlFormatter do
   end
 
   context 'when handling keywords' do
-    context 'when there is only primary keywords' do
-      let(:query) { 'select a.id from a join b where b.id = 1 union select 1 id order by 1;' }
-      it { should eq(expected) }
-
-      let(:expected) do
-        <<~SQL.chomp
-          select a.id
-          from a
-          join b
-          where b.id = 1
-          union
-          select 1 id
-          order by 1
-          ;
-        SQL
-      end
-    end
-
-    context 'when there are both primary and secondary keywords' do
+    context 'when handling keywords that get new line' do
       let(:query) { 'select * from a join b on a.id = b.id where a.id = 1 and a.id != 2 or a.id = 3 order by 1;' }
       it { should eq(expected) }
 
@@ -398,10 +380,10 @@ describe SqlFormatter do
           select *
           from a
           join b
-            on a.id = b.id
+          on a.id = b.id
           where a.id = 1
-            and a.id != 2
-            or a.id = 3
+          and a.id != 2
+          or a.id = 3
           order by 1
           ;
         SQL
@@ -452,7 +434,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when handling upper case keywords' do
+    context 'when handling uppercase keywords' do
       let(:query) { 'SELECT 1 FROM A;' }
       it { should eq(expected) }
 

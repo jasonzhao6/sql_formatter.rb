@@ -62,34 +62,20 @@ class SqlFormatter
   #   ```
   PAREN_ABLE_KEYWORDS = %W(#{FROM} #{WHERE} #{AND} #{OR} in)
 
-  # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
-  JOIN_KEYWORDS = %w(inner left right full outer join)
-
   # Allow `AND_OR_KEYWORDS` to be sandwitched by parenthesis, e.g `) and (`
   AND_OR_KEYWORDS = %W(#{AND} #{OR})
 
-  # Give `PRIMARY_KEYWORDS` their own line, e.g
-  #   ```
-  #   select *
-  #   from a
-  #   ```
-  PRIMARY_KEYWORDS = JOIN_KEYWORDS + %W(
+  # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
+  JOIN_KEYWORDS = %w(inner left right full outer join)
+
+  # Give `NEW_LINE_KEYWORDS` their own line
+  NEW_LINE_KEYWORDS = JOIN_KEYWORDS + %W(
     #{SELECT} #{FROM} #{WHERE} order union #{SEMICOLON} #{SLASH_G}
+    #{AND} #{OR} on
   )
 
-  # Give `SECONDARY_KEYWORDS` their own line and indent an extra level, e.g
-  #   ```
-  #   left join b
-  #     on a.id = b.id  # `on` is a secondary keyword
-  #   where key1 = 1
-  #     and key2 = 2    # `and` is a secondary keyword
-  #   ```
-  SECONDARY_KEYWORDS = AND_OR_KEYWORDS + %w(on)
-
   # Downcase all keywords
-  DOWNCASE_KEYWORDS = (
-    PAREN_ABLE_KEYWORDS + PRIMARY_KEYWORDS + SECONDARY_KEYWORDS
-  ).uniq
+  DOWNCASE_ALL_KEYWORDS = NEW_LINE_KEYWORDS + %w(in)
 
   attr_reader :tokens
   attr_reader :formatted
@@ -190,7 +176,7 @@ class SqlFormatter
 
   def split_and_downcase(buffer)
     buffer.split.map do |token|
-      (DOWNCASE_KEYWORDS.include?(token.downcase) ? token.downcase : token)
+      (DOWNCASE_ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token)
     end
   end
 
@@ -261,13 +247,9 @@ class SqlFormatter
       elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
         formatted << ' ' << token
 
-      # Append `PRIMARY_KEYWORDS` with `NEW_LINE`
-      elsif PRIMARY_KEYWORDS.include?(token)
+      # Append `NEW_LINE_KEYWORDS` with `NEW_LINE`
+      elsif NEW_LINE_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
-
-      # Append `SECONDARY_KEYWORDS` with `NEW_LINE` and indent an extra level
-      elsif SECONDARY_KEYWORDS.include?(token)
-        formatted << NEW_LINE << INDENT * (indent_level + 1) << token
 
       # Append everything else with space
       else
