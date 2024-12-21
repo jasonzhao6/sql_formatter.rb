@@ -11,50 +11,37 @@ Parenthesis = Struct.new(
 module FormatHelpers
   include Constants
 
+  # REMINDER for `#append_*`: For simplicity and readability-
+  # - Keep it flat, no nested `if` statements
+  # - Keep it short, dedupe as much as possible
+  # - Keep it concise, drop redundant conditions
   def append_paren_open!
-    # Append `PAREN_OPEN` with space when preceded by `PAREN_ABLE_KEYWORDS`
+    # Append with space when preceded by `PAREN_ABLE_KEYWORDS`
     if PAREN_ABLE_KEYWORDS.include?(@f.last_token)
       @f.formatted << ' ' << @f.token
-
-    # Append `PAREN_OPEN` without space when preceded by a function call(?)
     else
       @f.formatted << @f.token
     end
   end
 
   def append_after_paren_open!
-    # Append after `PAREN_OPEN` with `NEW_LINE` when it's a subquery
+    # Append with `NEW_LINE` when it's a subquery
     if @f.paren_stack.last.is_subquery
       @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
-
-    # Append after `PAREN_OPEN` without space when it's a short list
-    elsif @f.paren_stack.last.is_short_list
-      @f.formatted << @f.token
-
-    # Append after `PAREN_OPEN` without space when it's a function arg(?)
     else
       @f.formatted << @f.token
     end
   end
 
   def append_paren_close!
-    # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a subquery
-    if @f.paren_stack.last.is_subquery
+    # Append with `NEW_LINE` when preceded by a subquery or conditional
+    if @f.paren_stack.last.is_subquery || @f.paren_stack.last.is_conditional
       @f.formatted << NEW_LINE << INDENT * (@f.indent_level - 1) << @f.token
 
     # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a long list
     elsif @f.paren_stack.last.is_long_list
       @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
 
-    # Append `PAREN_CLOSE` without space when preceded by a short list
-    elsif @f.paren_stack.last.is_short_list
-      @f.formatted << @f.token
-
-    # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a conditional
-    elsif @f.paren_stack.last.is_conditional
-      @f.formatted << NEW_LINE << INDENT * (@f.indent_level - 1) << @f.token
-
-    # Append `PAREN_CLOSE` without space when preceded by a function call(?)
     else
       @f.formatted << @f.token
     end

@@ -37,7 +37,10 @@ class SqlFormatter
     # Track when we open/close a quote
     open_quote = nil # Valid values: %w(nil ' ")
 
-    # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
+    # REMINDER: For simplicity and readability-
+    # - Keep it flat, no nested `if` statements
+    # - Keep it short, dedupe as much as possible
+    # - Keep it concise, drop redundant conditions
     chars = query.chars
     chars.each.with_index do |char, index|
       last_char = chars[index - 1]
@@ -57,27 +60,12 @@ class SqlFormatter
         tokens.concat(split_and_downcase(buffer))
         buffer = '' << char
 
-      # Treat operator as its own token
-      elsif OPERATORS.include?(char) &&
-        !OPERATORS.include?(last_char) &&
-        open_quote.nil?
-
-        tokens.concat(split_and_downcase(buffer))
-        tokens << char
-        buffer = ''
-
-      # Pair up consecutive operators; they are always either 1-char or 2-chars
+      # Pair up consecutive operators as one token; they are at most 2-char
       elsif OPERATORS.include?(char) &&
         OPERATORS.include?(last_char) &&
         open_quote.nil?
 
         tokens.last << char
-
-      # Treat comma and semicolon as their own tokens
-      elsif (COMMA == char || SEMICOLON == char) && open_quote.nil?
-        tokens.concat(split_and_downcase(buffer))
-        tokens << char
-        buffer = ''
 
       # Treat slash-g as its own token
       elsif 'G' == char && ESCAPE == last_char && open_quote.nil?
@@ -85,13 +73,13 @@ class SqlFormatter
         tokens << SLASH_G
         buffer = ''
 
-      # Treat parenthesis as their own tokens
-      elsif (PAREN_OPEN == char || PAREN_CLOSE == char) && open_quote.nil?
+      # Treat `SIMPLE_CHARS` as their own tokens
+      elsif SIMPLE_CHARS.include?(char) && open_quote.nil?
         tokens.concat(split_and_downcase(buffer))
         tokens << char
         buffer = ''
 
-      # Accumulate non-special characters until the next flush event
+      # Accumulate everything else until the next flush event
       else
         buffer << char
       end
@@ -130,7 +118,10 @@ class SqlFormatter
       f.indent_level = nil
     end
 
-    # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
+    # REMINDER: For simplicity and readability-
+    # - Keep it flat, no nested `if` statements
+    # - Keep it short, dedupe as much as possible
+    # - Keep it concise, drop redundant conditions
     @f.tokens.each.with_index do |token, index|
       # Set iteration vars
       @f.token = token
@@ -168,14 +159,10 @@ class SqlFormatter
       elsif COMMA == @f.token
         @f.formatted << @f.token
 
-      # Combine `JOIN_KEYWORDS` with space
-      elsif JOIN_KEYWORDS.include?(@f.token) &&
-        JOIN_KEYWORDS.include?(@f.last_token)
+      # Append with `NEW_LINE`, unless combining consecutive `JOIN_KEYWORDS`
+      elsif NEW_LINE_KEYWORDS.include?(@f.token) &&
+        !JOIN_KEYWORDS.include?(@f.last_token)
 
-        @f.formatted << ' ' << @f.token
-
-      # Append `NEW_LINE_KEYWORDS` with `NEW_LINE`
-      elsif NEW_LINE_KEYWORDS.include?(@f.token)
         @f.formatted << NEW_LINE << INDENT * @f.indent_level << @f.token
 
       # Append everything else with space

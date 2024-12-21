@@ -1,9 +1,9 @@
 module Constants
-  # Whitespace to add
+  # Whitespace to be added by `#format`
   INDENT = '  '
   NEW_LINE = "\n"
 
-  # Characters individually referenced
+  # Characters to be individually referenced
   COMMA = ','
   ESCAPE = '\\'
   OPERATORS = %w(! = < >)
@@ -13,7 +13,12 @@ module Constants
   SEMICOLON = ';'
   SLASH_G = ESCAPE + 'G'
 
-  # Keywords individually referenced
+  # Tokenize `SIMPLE_CHARS` without special handling
+  SIMPLE_CHARS = OPERATORS + %W(
+    #{COMMA} #{SEMICOLON} #{PAREN_OPEN} #{PAREN_CLOSE}
+  )
+
+  # Keywords to be individually referenced
   SELECT = 'select'
   FROM = 'from'
   WHERE = 'where'
