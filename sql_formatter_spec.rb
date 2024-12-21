@@ -1,7 +1,4 @@
-# TODO
- 
-
-require './sql_formatter'
+require_relative 'sql_formatter'
 require 'rspec'
 
 RSpec.configure do |config|

@@ -1,75 +1,9 @@
-require 'byebug'
+require_relative 'sql_formatter.constants'
+require_relative 'sql_formatter.format_helpers'
 
 class SqlFormatter
-  # Whitespace to add
-  INDENT = '  '
-  NEW_LINE = "\n"
-
-  # Characters individually referenced
-  COMMA = ','
-  ESCAPE = '\\'
-  OPERATORS = %w(! = < >)
-  PAREN_CLOSE = ')'
-  PAREN_OPEN = '('
-  QUOTES = %w(' ")
-  SEMICOLON = ';'
-  SLASH_G = ESCAPE + 'G'
-
-  # Keywords individually referenced
-  SELECT = 'select'
-  FROM = 'from'
-  WHERE = 'where'
-  AND = 'and'
-  OR = 'or'
-
-  # Break long comma-separated value (CSV) into multiple lines, e.g
-  #   ```
-  #   select         # Break long CSV after `SELECT`
-  #     aaaaaaaaaa,
-  #     bbbbbbbbbb
-  #   from a
-  #   where id in (  # Break long CSV `IN` parenthesis
-  #     1111111111,
-  #     2222222222,
-  #     3333333333,
-  #     4444444444
-  #   )
-  #   ```
-  CHAR_LIMIT = 20
-  COMMA_LIMIT = 1
-
-  # Allow `PAREN_ABLE_KEYWORDS` to be followed by parenthesis, e.g
-  #   ```
-  #   select *
-  #   from a
-  #   where (       # Followed by compound conditions
-  #     a = 1
-  #     and b = 2
-  #   ) or id in (  # Followed by subquery
-  #     select id
-  #     from b
-  #   ) or id in (  # Followed by list
-  #     1111111111,
-  #     2222222222,
-  #     3333333333,
-  #     4444444444
-  #   )
-  #   ```
-  CONDITIONAL_KEYWORDS = %W(#{WHERE} #{AND} #{OR} #{PAREN_OPEN})
-  QUARY_ABLE_KEYWORDS = %W(#{FROM} in) # Followed by subquery or list
-  PAREN_ABLE_KEYWORDS = CONDITIONAL_KEYWORDS + QUARY_ABLE_KEYWORDS
-
-  # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
-  JOIN_KEYWORDS = %w(inner left right full outer join)
-
-  # Give `NEW_LINE_KEYWORDS` their own line
-  NEW_LINE_KEYWORDS = JOIN_KEYWORDS + %W(
-    #{SELECT} #{FROM} #{WHERE} order union #{SEMICOLON} #{SLASH_G}
-    #{AND} #{OR} on
-  )
-
-  # Downcase all keywords
-  DOWNCASE_ALL_KEYWORDS = NEW_LINE_KEYWORDS + %w(in)
+  include Constants
+  include FormatHelpers
 
   attr_reader :tokens
   attr_reader :formatted
@@ -164,8 +98,6 @@ class SqlFormatter
 
     # Final flush
     tokens.concat(split_and_downcase(buffer))
-
-    tokens
   end
 
   def split_and_downcase(buffer)
@@ -175,182 +107,87 @@ class SqlFormatter
   end
 
   def format(tokens)
-    formatted = '' # Return value
+    # A set of instance vars shared by only this method and its helpers
+    # It was created to enable calling helpers without passing long params
+    # It was intentionally namespaced to one instance var to keep it contained
+    # It was intentionally named one-letter to avoid exceeding line length limit
+    @f = {
+      tokens: tokens,
+      formatted: '', # Return value
 
-    # Break long comma-separated value (CSV) into multiple lines
-    is_long_select = false # Break long CSV after `SELECT`
-    is_long_list = false # Break long CSV `IN` parenthesis
-    add_new_line = false # Add a `NEW_LINE` immediately; then after each `COMMA`
+      # Break long `SELECT`, list, and compound conditions into multiple lines
+      is_long_select: false,
+      add_new_line: false,
 
-    # Track where we are in the parenthesis stack to add appropriate whitespace
-    paren_stack = [] # An array of `Parenthesis` struct
+      # Track where we are in the parenthesis stack to apply correct formatting
+      paren_stack: [],
+
+      # Iteration vars to be set
+      token: nil,
+      index: nil,
+      last_token: nil,
+      indent_level: nil,
+    }
 
     # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
-    tokens.each.with_index do |token, index|
-      last_token = tokens[index - 1]
-      indent_level = paren_stack.select do |paren|
+    @f[:tokens].each.with_index do |token, index|
+      # Set iteration vars
+      @f[:token] = token
+      @f[:index] = index
+      @f[:last_token] = @f[:tokens][@f[:index] - 1]
+      @f[:indent_level] = @f[:paren_stack].select do |paren|
         paren.is_subquery || paren.is_conditional
       end.size
 
-      # Break long CSV into multiple lines
-      if (is_long_select || paren_stack.last&.is_long_list) &&
-        (add_new_line || COMMA == last_token)
+      # Break long `SELECT` and list into multiple lines
+      if (@f[:is_long_select] || @f[:paren_stack].last&.is_long_list) &&
+        (@f[:add_new_line] || COMMA == @f[:last_token])
 
-        add_new_line = false
-        formatted << NEW_LINE << INDENT * (indent_level + 1) << token
+        @f[:add_new_line] = false
+        @f[:formatted] << NEW_LINE <<
+          INDENT * (@f[:indent_level] + 1) << @f[:token]
 
-      # Break compound conditional into multiple lines
-      elsif paren_stack.last&.is_conditional && add_new_line
-        add_new_line = false
-        formatted << NEW_LINE << INDENT * indent_level << token
+      # Break compound conditions into multiple lines
+      elsif @f[:paren_stack].last&.is_conditional && @f[:add_new_line]
+        @f[:add_new_line] = false
+        @f[:formatted] << NEW_LINE << INDENT * @f[:indent_level] << @f[:token]
+
+      # Append `PAREN_OPEN` via helper; there are multiple sub-conditions
+      elsif PAREN_OPEN == @f[:token]
+        append_paren_open!
+
+      # Append after `PAREN_OPEN` via helper; there are multiple sub-conditions
+      elsif PAREN_OPEN == @f[:last_token]
+        append_after_paren_open!
+
+      # Append `PAREN_CLOSE` via helper; there are multiple sub-conditions
+      elsif PAREN_CLOSE == @f[:token]
+        append_paren_close!
 
       # Append `COMMA` without space
-      elsif COMMA == token
-        formatted << token
-
-      # Append `PAREN_OPEN` with space when preceded by `PAREN_ABLE_KEYWORDS`
-      elsif PAREN_OPEN == token && PAREN_ABLE_KEYWORDS.include?(last_token)
-        formatted << ' ' << token
-
-      # Append `PAREN_OPEN` without space when preceded by a function call(?)
-      elsif PAREN_OPEN == token
-        formatted << token
-
-      # Append after `PAREN_OPEN` without space when it's a short list
-      elsif PAREN_OPEN == last_token && paren_stack.last.is_short_list
-        formatted << token
-
-      # Append after `PAREN_OPEN` without space when it's a function arg(?)
-      elsif PAREN_OPEN == last_token && !paren_stack.last.is_subquery
-        formatted << token
-
-      # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a subquery
-      elsif PAREN_CLOSE == token && paren_stack.last.is_subquery
-        formatted << NEW_LINE << INDENT * (indent_level - 1) << token
-
-      # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a long list
-      elsif PAREN_CLOSE == token && paren_stack.last.is_long_list
-        formatted << NEW_LINE << INDENT * indent_level << token
-
-      # Append `PAREN_CLOSE` without space when preceded by a short list
-      elsif PAREN_CLOSE == token && paren_stack.last.is_short_list
-        formatted << token
-
-      # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a conditional
-      elsif PAREN_CLOSE == token && paren_stack.last.is_conditional
-        formatted << NEW_LINE << INDENT * (indent_level - 1) << token
-
-      # Append `PAREN_CLOSE` without space when preceded by a function call(?)
-      elsif PAREN_CLOSE == token
-        formatted << token
+      elsif COMMA == @f[:token]
+        @f[:formatted] << @f[:token]
 
       # Combine `JOIN_KEYWORDS` with space
-      elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
-        formatted << ' ' << token
+      elsif JOIN_KEYWORDS.include?(@f[:token]) &&
+        JOIN_KEYWORDS.include?(@f[:last_token])
+
+        @f[:formatted] << ' ' << @f[:token]
 
       # Append `NEW_LINE_KEYWORDS` with `NEW_LINE`
-      elsif NEW_LINE_KEYWORDS.include?(token)
-        formatted << NEW_LINE << INDENT * indent_level << token
+      elsif NEW_LINE_KEYWORDS.include?(@f[:token])
+        @f[:formatted] << NEW_LINE << INDENT * @f[:indent_level] << @f[:token]
 
       # Append everything else with space
       else
-        formatted << ' ' << token
+        @f[:formatted] << ' ' << @f[:token]
       end
 
-      # Decide if we are breaking long CSV into mulitple lines
-      # And track where we are in the parenthesis stack
-      case tokens[index]
-      when SELECT
-        is_long_select = add_new_line = is_long_csv?(tokens, index)
-      when FROM
-        is_long_select = false
-      when PAREN_OPEN
-        paren = Parenthesis.new(last_token)
-
-        if CONDITIONAL_KEYWORDS.include?(last_token)
-          paren.is_conditional = add_new_line = true
-        elsif QUARY_ABLE_KEYWORDS.include?(last_token)
-          paren.is_subquery = SELECT == tokens[index + 1]
-          paren.is_long_list = add_new_line = is_long_csv?(tokens, index)
-          paren.is_short_list = (!paren.is_subquery && !paren.is_long_list)
-        end
-
-        paren_stack.push(paren)
-      when PAREN_CLOSE
-        paren_stack.pop
-      end
+      # End of iteration tasks
+      set_is_long_select!
+      update_paren_stack!
     end
 
-    formatted.strip
-  end
-
-  def is_long_csv?(tokens, index)
-    char_count = 0
-    comma_count = 0
-    paren_count = 0
-
-    # Count ahead
-    ((index + 1)...tokens.size).each do |next_index|
-      # To decide `is_long_select`, count until the next `FROM`
-      break if FROM == tokens[next_index]
-      # To decide `is_long_list`, count until the matching `PAREN_CLOSE`
-      break if paren_count < 0
-
-      # Keep track of nested parenthesis and ignore any enclosed `COMMA`
-      case tokens[next_index]
-      when PAREN_OPEN then paren_count += 1
-      when PAREN_CLOSE then paren_count -= 1
-      end
-
-      case tokens[next_index]
-      when COMMA then comma_count += 1 if paren_count == 0 # Count `COMMA`
-      else char_count += tokens[next_index].size # Count chars
-      end
-    end
-
-    # Compare counts to the limits
-    char_count >= CHAR_LIMIT && comma_count >= COMMA_LIMIT
+    @f[:formatted].strip # Strip leading `NEW_LINE`
   end
 end
-
-Parenthesis = Struct.new(
-  :token, # The token preceding `PAREN_OPEN`
-  :is_subquery, # The enclosed value is a subquery
-  :is_long_list, # The enclosed value is a long CSV
-  :is_short_list, # The enclosed value is a short CSV
-  :is_conditional # The enclosed value is a conditional
-)
-
-# If running specs, do not expect CLI input
-return if ARGV.first&.end_with?('sql_formatter_spec.rb')
-
-# In case of arg mode
-input = ARGV.join(' ')
-
-# In case of interactive mode
-if ARGV.empty?
-  puts 'Enter a sql query (formatting starts after `;` or `\\G`):'
-  puts
-  puts
-
-  loop do
-    input << gets
-    break if input.strip.end_with?(';') || input.strip.end_with?('\\G')
-  rescue TypeError
-    raise 'CLI input is required!'
-  end
-
-  puts
-  puts
-  puts '>>>>>>'
-end
-
-# Process input
-formatter = SqlFormatter.new(input)
-formatter.run
-
-# Print output
-puts
-puts
-puts formatter.formatted
-puts
