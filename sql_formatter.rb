@@ -22,13 +22,20 @@ class SqlFormatter
   INDENT = '  '
   NEW_LINE = "\n"
 
+  # Keywords
+  SELECT = 'select'
+  FROM = 'from'
+  WHERE = 'where'
+  AND = 'and'
+  OR = 'or'
+
   # Break long comma-separated value (CSV) into multiple lines, e.g
   #   ```
   #   select         # Break long CSV after `SELECT`
   #     aaaaaaaaaa,
   #     bbbbbbbbbb
   #   from a
-  #   where id in (  # Break long CSV inside parenthesis
+  #   where id in (  # Break long CSV `IN` parenthesis
   #     1111111111,
   #     2222222222,
   #     3333333333,
@@ -38,21 +45,28 @@ class SqlFormatter
   CHAR_LIMIT = 20
   COMMA_LIMIT = 1
 
-  # Keywords used to break long CSV after `SELECT`
-  SELECT = 'select'
-  FROM = 'from'
+  # Allow `PAREN_ABLE_KEYWORDS` to be followed by parenthesis, e.g
+  #   ```
+  #   select *
+  #   from (       # Followed by subquery
+  #     select *
+  #     from a
+  #   )
+  #   where (      # Followed by compound conditions
+  #     a = 1
+  #     and b = 2
+  #   ) or (
+  #     c = 3
+  #     and d = 4
+  #   )
+  #   ```
+  PAREN_ABLE_KEYWORDS = %W(#{FROM} #{WHERE} #{AND} #{OR} in)
 
-  # Keyword used to break long CSV inside parenthesis
-  IN = 'in'
-
-  # Keywords used to indent each subquery an extra level
-  QUERYABLE_KEYWORDS = %W(from #{IN})
-
-  # Allow `JOIN_KEYWORDS` to form combination, e.g `left join`
+  # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
   JOIN_KEYWORDS = %w(inner left right full outer join)
 
   # Allow `AND_OR_KEYWORDS` to be sandwitched by parenthesis, e.g `) and (`
-  AND_OR_KEYWORDS = %w(and or)
+  AND_OR_KEYWORDS = %W(#{AND} #{OR})
 
   # Give `PRIMARY_KEYWORDS` their own line, e.g
   #   ```
@@ -60,7 +74,7 @@ class SqlFormatter
   #   from a
   #   ```
   PRIMARY_KEYWORDS = JOIN_KEYWORDS + %W(
-    #{SELECT} #{FROM} where order union #{SEMICOLON} #{SLASH_G}
+    #{SELECT} #{FROM} #{WHERE} order union #{SEMICOLON} #{SLASH_G}
   )
 
   # Give `SECONDARY_KEYWORDS` their own line and indent an extra level, e.g
@@ -74,7 +88,7 @@ class SqlFormatter
 
   # Downcase all keywords
   DOWNCASE_KEYWORDS = (
-    QUERYABLE_KEYWORDS + PRIMARY_KEYWORDS + SECONDARY_KEYWORDS
+    PAREN_ABLE_KEYWORDS + PRIMARY_KEYWORDS + SECONDARY_KEYWORDS
   ).uniq
 
   attr_reader :tokens
@@ -184,8 +198,8 @@ class SqlFormatter
     formatted = '' # Return value
 
     # Break long comma-separated value (CSV) into multiple lines
-    is_long_select = false # Break long long CSV after `SELECT`
-    is_long_list = false # Break long CSV inside parenthesis
+    is_long_select = false # Break long CSV after `SELECT`
+    is_long_list = false # Break long CSV `IN` parenthesis
     add_new_line = false # Add a `NEW_LINE` immediately; then after each `COMMA`
 
     # Track where we are in the parenthesis stack to add appropriate whitespace
@@ -207,62 +221,43 @@ class SqlFormatter
       elsif COMMA == token
         formatted << token
 
-      # Append `PAREN_OPEN` with space when preceded by `QUERYABLE_KEYWORDS`
-      elsif PAREN_OPEN == token && QUERYABLE_KEYWORDS.include?(last_token)
+      # Append `PAREN_OPEN` with space when preceded by `PAREN_ABLE_KEYWORDS`
+      elsif PAREN_OPEN == token && PAREN_ABLE_KEYWORDS.include?(last_token)
         formatted << ' ' << token
 
       # Append `PAREN_OPEN` without space when preceded by a function call(?)
-      elsif PAREN_OPEN == token && !QUERYABLE_KEYWORDS.include?(last_token)
+      elsif PAREN_OPEN == token
         formatted << token
 
       # Append after `PAREN_OPEN` without space when it's a short list
-      elsif PAREN_OPEN == last_token &&
-        IN == paren_stack.last.token &&
-        !paren_stack.last.is_subquery &&
-        !paren_stack.last.is_long_list
-
+      elsif PAREN_OPEN == last_token && paren_stack.last.is_short_list
         formatted << token
 
-      # Append after `PAREN_OPEN` without space when it's function arg(?)
-      elsif PAREN_OPEN == last_token &&
-        !QUERYABLE_KEYWORDS.include?(paren_stack.last.token)
-
+      # Append after `PAREN_OPEN` without space when it's a function arg(?)
+      elsif PAREN_OPEN == last_token && !paren_stack.last.is_subquery
         formatted << token
 
       # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a subquery
-      elsif PAREN_CLOSE == token &&
-        QUERYABLE_KEYWORDS.include?(paren_stack.last.token) &&
-        paren_stack.last.is_subquery
-
+      elsif PAREN_CLOSE == token && paren_stack.last.is_subquery
         formatted << NEW_LINE << INDENT * (indent_level - 1) << token
 
       # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a long list
-      elsif PAREN_CLOSE == token &&
-        IN == paren_stack.last.token &&
-        !paren_stack.last.is_subquery &&
-        paren_stack.last.is_long_list
-
+      elsif PAREN_CLOSE == token && paren_stack.last.is_long_list
         formatted << NEW_LINE << INDENT * indent_level << token
 
       # Append `PAREN_CLOSE` without space when preceded by a short list
-      elsif PAREN_CLOSE == token &&
-        IN == paren_stack.last.token &&
-        !paren_stack.last.is_subquery &&
-        !paren_stack.last.is_long_list
-
+      elsif PAREN_CLOSE == token && paren_stack.last.is_short_list
         formatted << token
 
       # Append `PAREN_CLOSE` without space when preceded by a function call(?)
-      elsif PAREN_CLOSE == token &&
-        !QUERYABLE_KEYWORDS.include?(paren_stack.last.token)
-
+      elsif PAREN_CLOSE == token
         formatted << token
 
       # Append `AND_OR_KEYWORDS` with space when preceded by `PAREN_CLOSE`
       elsif PAREN_CLOSE == last_token && AND_OR_KEYWORDS.include?(token)
         formatted << ' ' << token
 
-      # Append combination `JOIN_KEYWORDS` with space
+      # Combine `JOIN_KEYWORDS` with space
       elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
         formatted << ' ' << token
 
@@ -308,14 +303,14 @@ class SqlFormatter
     comma_count = 0
     paren_count = 0
 
-    # Look ahead and count
+    # Count ahead
     ((index + 1)...tokens.size).each do |next_index|
-      # When deciding `is_long_select`, count until the next `FROM`
+      # To decide `is_long_select`, count until the next `FROM`
       break if FROM == tokens[next_index]
-      # When deciding `is_long_list`, count until the matching `PAREN_CLOSE`
+      # To decide `is_long_list`, count until the matching `PAREN_CLOSE`
       break if paren_count < 0
 
-      # Keep track of nested parenthesis to ignore any enclosed `COMMA`
+      # Keep track of nested parenthesis and ignore any enclosed `COMMA`
       case tokens[next_index]
       when PAREN_OPEN then paren_count += 1
       when PAREN_CLOSE then paren_count -= 1
@@ -327,7 +322,7 @@ class SqlFormatter
       end
     end
 
-    # Check against the limits
+    # Compare counts to the limits
     char_count >= CHAR_LIMIT && comma_count >= COMMA_LIMIT
   end
 end
