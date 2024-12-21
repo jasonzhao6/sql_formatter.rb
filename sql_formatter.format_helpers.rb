@@ -5,11 +5,14 @@
 require_relative 'sql_formatter.constants'
 
 Parenthesis = Struct.new(
-  :token, # The token preceding `PAREN_OPEN`
-  :is_conditional, # The enclosed value is a conditional
-  :is_subquery, # The enclosed value is a subquery
-  :is_long_list, # The enclosed value is a long list
-  :is_short_list, # The enclosed value is a short list
+  # The token preceding `PAREN_OPEN`
+  :token,
+
+  # The type of enclosed value
+  :is_conditional,
+  :is_subquery,
+  :is_long_list,
+  :is_short_list,
 )
 
 module FormatHelpers
@@ -20,7 +23,7 @@ module FormatHelpers
   # - Keep it short, dedupe as much as possible
   # - Keep it concise, drop redundant conditions
   def append_paren_open!(formatted, token, last_token)
-    # Append with space when preceded by `PAREN_ABLE_KEYWORDS`
+    # Append `PAREN_OPEN` with space when preceded by `PAREN_ABLE_KEYWORDS`
     if PAREN_ABLE_KEYWORDS.include?(last_token)
       formatted << ' ' << token
     else
@@ -29,7 +32,7 @@ module FormatHelpers
   end
 
   def append_after_paren_open!(formatted, token, paren_stack, indent_level)
-    # Append with `NEW_LINE` when it's a subquery
+    # Append subquery with `NEW_LINE` when preceded by `PAREN_OPEN`
     if paren_stack.last.is_subquery
       formatted << NEW_LINE << INDENT * indent_level << token
     else
@@ -38,11 +41,11 @@ module FormatHelpers
   end
 
   def append_paren_close!(formatted, token, paren_stack, indent_level)
-    # Append with `NEW_LINE` when preceded by a conditional or subquery
+    # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by conditional/subquery
     if paren_stack.last.is_conditional || paren_stack.last.is_subquery
       formatted << NEW_LINE << INDENT * (indent_level - 1) << token
 
-    # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by a long list
+    # Append `PAREN_CLOSE` with `NEW_LINE` when preceded by long list
     elsif paren_stack.last.is_long_list
       formatted << NEW_LINE << INDENT * indent_level << token
 
@@ -91,7 +94,7 @@ module FormatHelpers
     ((index + 1)...tokens.size).each do |next_index|
       next_token = tokens[next_index]
 
-      # Count only 1) `SELECT...FROM` and 2) between matching parenthesis
+      # Count between either `SELECT...FROM` or matching parenthesis
       case start_token
       when SELECT then break if FROM == next_token
       when PAREN_OPEN then break if paren_count < 0
@@ -111,6 +114,6 @@ module FormatHelpers
     end
 
     # Compare counts to limits
-    char_count >= CHAR_LIMIT && comma_count >= COMMA_LIMIT
+    char_count >= CHAR_MIN && comma_count >= COMMA_MIN
   end
 end

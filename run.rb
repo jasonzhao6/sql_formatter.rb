@@ -1,10 +1,8 @@
 require_relative 'sql_formatter'
 require 'byebug'
 
-# In case of arg mode
+# Accept query via both `ARGV` and `gets`
 input = ARGV.join(' ')
-
-# In case of interactive mode
 if ARGV.empty?
   puts 'Enter a sql query (formatting starts after `;` or `\\G`):'
   puts
@@ -14,7 +12,7 @@ if ARGV.empty?
     input << gets
     break if input.strip.end_with?(';') || input.strip.end_with?('\\G')
   rescue TypeError
-    raise '(This file cannot run from TextMate as CLI input is required)'
+    raise 'A query via `ARGV` or `gets` is required.'
   end
 
   puts
@@ -22,11 +20,9 @@ if ARGV.empty?
   puts '>>>>>>'
 end
 
-# Process input
 formatter = SqlFormatter.new(input)
 formatter.run
 
-# Print output
 puts
 puts
 puts formatter.formatted

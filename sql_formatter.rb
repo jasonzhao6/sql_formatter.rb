@@ -73,8 +73,8 @@ class SqlFormatter
         tokens << SLASH_G
         buffer = ''
 
-      # Treat `SIMPLE_CHARS` as their own tokens
-      elsif SIMPLE_CHARS.include?(char) && open_quote.nil?
+      # Treat `SINGULAR_CHARS` as their own tokens
+      elsif SINGULAR_CHARS.include?(char) && open_quote.nil?
         tokens.concat(split_and_downcase(buffer))
         tokens << char
         buffer = ''
@@ -91,7 +91,7 @@ class SqlFormatter
 
   def split_and_downcase(buffer)
     buffer.split.map do |token|
-      (DOWNCASE_ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token)
+      (ALL_KEYWORDS.include?(token.downcase) ? token.downcase : token)
     end
   end
 
