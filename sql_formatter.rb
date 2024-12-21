@@ -3,8 +3,9 @@ require 'byebug'
 # Fields
 # - token: The word preceding `PAREN_OPEN`
 # - is_subquery: The value following `PAREN_OPEN` is a subquery
-# - is_long_list, The value following `PAREN_OPEN` is a long list of values
-Parenthesis = Struct.new(:token, :is_subquery, :is_long_list)
+# - is_long_list: The value following `PAREN_OPEN` is a long list of values
+# - is_short_list: The value following `PAREN_OPEN` is a short list of values
+Parenthesis = Struct.new(:token, :is_subquery, :is_long_list, :is_short_list)
 
 class SqlFormatter
   # Characters
@@ -287,9 +288,13 @@ class SqlFormatter
         is_long_select = false
       when PAREN_OPEN
         parenthesis = Parenthesis.new(tokens[index - 1])
-        paren_stack.push(parenthesis)
         parenthesis.is_subquery = SELECT == tokens[index + 1]
         parenthesis.is_long_list = add_new_line = is_long_csv?(tokens, index)
+        parenthesis.is_short_list = (
+          !parenthesis.is_subquery && !parenthesis.is_long_list
+        )
+
+        paren_stack.push(parenthesis)
       when PAREN_CLOSE
         paren_stack.pop
       end
