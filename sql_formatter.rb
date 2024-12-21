@@ -112,23 +112,23 @@ class SqlFormatter
     # It was created to enable calling helpers without passing long params
     # It was intentionally namespaced to one instance var to keep it contained
     # It was intentionally named one-letter to avoid exceeding line length limit
-    @f = OpenStruct.new
+    @f = OpenStruct.new.tap do |f|
+      f.tokens = tokens # Arg
+      f.formatted = '' # Return value
 
-    @f.tokens = tokens # Arg
-    @f.formatted = '' # Return value
+      # Break long `SELECT`, list, and compound conditions into multiple lines
+      f.is_long_select = false
+      f.add_new_line = false
 
-    # Break long `SELECT`, list, and compound conditions into multiple lines
-    @f.is_long_select = false
-    @f.add_new_line = false
+      # Track where we are in the parenthesis stack to apply correct formatting
+      f.paren_stack = []
 
-    # Track where we are in the parenthesis stack to apply correct formatting
-    @f.paren_stack = []
-
-    # Iteration vars to be set
-    @f.token = nil
-    @f.index = nil
-    @f.last_token = nil
-    @f.indent_level = nil
+      # Iteration vars to be set
+      f.token = nil
+      f.index = nil
+      f.last_token = nil
+      f.indent_level = nil
+    end
 
     # REMINDER: Avoid nested `if` statements; keep it one level for simplicity
     @f.tokens.each.with_index do |token, index|
