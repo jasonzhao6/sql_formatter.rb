@@ -121,8 +121,6 @@ class SqlFormatter
         paren.is_conditional || paren.is_subquery
       end.size
 
-      # TODO try if-if
-
       # Break compound conditions into multiple lines
       if paren_stack.last&.is_conditional && add_initial_new_line
         add_initial_new_line = false
@@ -151,17 +149,17 @@ class SqlFormatter
       elsif COMMA == token
         formatted << token
 
-      # Append with `NEW_LINE * 2`, unless combining consecutive `JOIN_KEYWORDS`
-      elsif is_multi_join &&
-        NEW_LINES_KEYWORDS.include?(token) &&
-        !JOIN_KEYWORDS.include?(last_token) &&
+      # Append consecutive `JOIN_KEYWORDS` with `SPACE`
+      # Note: This could be deduped with the `else` case, but it becomes messy
+      elsif JOIN_KEYWORDS.include?(token) && JOIN_KEYWORDS.include?(last_token)
+        formatted << SPACE << token
 
+      # Append with extra `NEW_LINE` in case of multiple `JOIN`
+      elsif is_multi_join && NEW_LINES_KEYWORDS.include?(token)
         formatted << NEW_LINE * 2 << INDENT * indent_level << token
 
-      # Append with `NEW_LINE`, unless combining consecutive `JOIN_KEYWORDS`
-      elsif NEW_LINE_KEYWORDS.include?(token) &&
-        !JOIN_KEYWORDS.include?(last_token)
-
+      # Append with `NEW_LINE`
+      elsif NEW_LINE_KEYWORDS.include?(token)
         formatted << NEW_LINE << INDENT * indent_level << token
 
       # Append everything else with `SPACE`
