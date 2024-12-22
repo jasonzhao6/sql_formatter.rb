@@ -23,9 +23,9 @@ module FormatHelpers
   # - Keep it short, dedupe as much as possible
   # - Keep it concise, drop redundant conditions
   def append_paren_open!(formatted, token, last_token)
-    # Append `PAREN_OPEN` with space when preceded by `PAREN_ABLE_KEYWORDS`
+    # Append `PAREN_OPEN` with `SPACE` when preceded by `PAREN_ABLE_KEYWORDS`
     if PAREN_ABLE_KEYWORDS.include?(last_token)
-      formatted << ' ' << token
+      formatted << SPACE << token
     else
       formatted << token
     end

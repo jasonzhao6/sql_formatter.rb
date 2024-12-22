@@ -121,6 +121,8 @@ class SqlFormatter
         paren.is_conditional || paren.is_subquery
       end.size
 
+      # TODO try if-if
+
       # Break compound conditions into multiple lines
       if paren_stack.last&.is_conditional && add_initial_new_line
         add_initial_new_line = false
@@ -145,7 +147,7 @@ class SqlFormatter
       elsif PAREN_CLOSE == token
         append_paren_close!(formatted, token, paren_stack, indent_level)
 
-      # Append `COMMA` without space
+      # Append `COMMA` without `SPACE`
       elsif COMMA == token
         formatted << token
 
@@ -162,9 +164,9 @@ class SqlFormatter
 
         formatted << NEW_LINE << INDENT * indent_level << token
 
-      # Append everything else with space
+      # Append everything else with `SPACE`
       else
-        formatted << ' ' << token
+        formatted << SPACE << token
       end
 
       case is_long_select?(tokens, index)

@@ -1,5 +1,6 @@
 module Constants
-  # Config
+  # Config: Whitespace
+  SPACE  = ' '
   INDENT = '  '
   NEW_LINE = "\n"
 
@@ -46,7 +47,7 @@ module Constants
   SEMICOLON = ';'
   SLASH_G = ESCAPE + 'G' # Not singular by definition
 
-  # `SINGULAR_CHARS` share the same simple tokenization logic
+  # `SINGULAR_CHARS` share a simple tokenization logic
   SINGULAR_CHARS = OPERATORS + %W(
     #{COMMA} #{SEMICOLON} #{PAREN_OPEN} #{PAREN_CLOSE}
   )
@@ -80,13 +81,15 @@ module Constants
   # Allow `JOIN_KEYWORDS` to combine, e.g `left join`
   JOIN_KEYWORDS = %W(inner left right full outer #{JOIN})
 
-  # Append `NEW_LINE_KEYWORDS` with `NEW_LINE`
   # Append `NEW_LINES_KEYWORDS` with extra `NEW_LINE` in case of multiple `JOIN`
   NEW_LINES_KEYWORDS = JOIN_KEYWORDS + %W(
     #{SELECT} #{FROM} #{WHERE} order union #{SEMICOLON} #{SLASH_G}
   )
+
+  # Append `NEW_LINE_KEYWORDS` with `NEW_LINE`
   NEW_LINE_KEYWORDS = NEW_LINES_KEYWORDS + %W(#{AND} #{OR} on)
 
   # Collect all keywords here
+  # Reminder: Update this when updating any `*_KEYWORDS` constants above
   ALL_KEYWORDS = NEW_LINE_KEYWORDS + %w(in)
 end

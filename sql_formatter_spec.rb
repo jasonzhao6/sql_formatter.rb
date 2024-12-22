@@ -356,12 +356,12 @@ describe SqlFormatter do
       end
 
       context 'when calling nested functions' do
-        let(:query) { "select upper(concat('hello', ' ', 'world'));" }
+        let(:query) { "select upper(concat('hello', '-', 'world'));" }
         it { should eq(expected) }
 
         let(:expected) do
           <<~SQL.chomp
-            select upper(concat('hello', ' ', 'world'))
+            select upper(concat('hello', '-', 'world'))
             ;
           SQL
         end
