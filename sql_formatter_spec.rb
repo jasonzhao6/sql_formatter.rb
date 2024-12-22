@@ -11,7 +11,7 @@ describe SqlFormatter do
   before { formatter.run }
   subject { formatter.formatted }
 
-  context 'when handling simple characters' do
+  context 'when handling characters' do
     context 'when handling space' do
       context 'when there is a single space' do
         let(:query) { 'select a' }
@@ -32,7 +32,7 @@ describe SqlFormatter do
     end
 
     context 'when handling comma' do
-      context 'when it has no preceding space' do
+      context 'when it does not have preceding space' do
         let(:query) { 'select a, b' }
         it { should eq(query) }
       end
@@ -51,7 +51,7 @@ describe SqlFormatter do
     end
 
     context 'when handling semicolon' do
-      context 'when it has no preceding space' do
+      context 'when it does not have preceding space' do
         let(:query) { 'select a;' }
         it { should eq("select a\n;") }
       end
@@ -70,7 +70,7 @@ describe SqlFormatter do
     end
 
     context 'when handling slash-g' do
-      context 'when it has no preceding space' do
+      context 'when it does not have preceding space' do
         let(:query) { 'select a\\G' }
         it { should eq("select a\n\\G") }
       end
@@ -88,25 +88,13 @@ describe SqlFormatter do
       end
     end
 
-    context 'when handling backtick' do
-      let(:query) { 'select a, `group`, b' }
-      it { should eq(query) }
-    end
-
-    context 'when handling new line' do
-      let(:query) { "select\na\n,\n\nb" }
-      it { should eq('select a, b') }
-    end
-  end
-
-  context 'when handling operator' do
-    context 'when operator has one char' do
+    context 'when handling one-char operator' do
       context 'when it has preceding and succeeding spaces' do
         let(:query) { 'where a = 1' }
         it { should eq(query) }
       end
 
-      context 'when it has no preceding and succeeding spaces' do
+      context 'when it does not have preceding and succeeding spaces' do
         context 'when outside of quotes' do
           let(:query) { 'where a=1' }
           it { should eq('where a = 1') }
@@ -119,13 +107,13 @@ describe SqlFormatter do
       end
     end
 
-    context 'when operator has two chars' do
+    context 'when handling two-char operator' do
       context 'when it has preceding and succeeding spaces' do
         let(:query) { 'where a != 1' }
         it { should eq(query) }
       end
 
-      context 'when it has no preceding and succeeding spaces' do
+      context 'when it does not have preceding and succeeding spaces' do
         context 'when outside of quotes' do
           let(:query) { 'where a!=1' }
           it { should eq('where a != 1') }
@@ -137,10 +125,20 @@ describe SqlFormatter do
         end
       end
     end
+
+    context 'when handling backtick' do
+      let(:query) { 'select a, `group`, b' }
+      it { should eq(query) }
+    end
+
+    context 'when handling new line' do
+      let(:query) { "select\na\n,\n\nb" }
+      it { should eq('select a, b') }
+    end
   end
 
   context 'when handling parenthesis' do
-    context 'when handling a subquery' do
+    context 'when enclosing a subquery' do
       context 'when subquery comes after `from`' do
         context 'when nesting one level' do
           let(:query) { 'select * from (select * from a); ' }
@@ -217,7 +215,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when handling a list' do
+    context 'when enclosing a list' do
       context 'when list is short' do
         let(:query) { 'select * from a where id in (1,2,3,4);' }
         it { should eq("select *\nfrom a\nwhere id in (1, 2, 3, 4)\n;") }
@@ -241,7 +239,7 @@ describe SqlFormatter do
       end
     end
 
-    context 'when handling compound conditions' do
+    context 'when enclosing compound conditions' do
       context 'when it comes after `where`' do
         let(:query) { 'select * from a where (a = 1 and b = 2) or c = 3;' }
         it { should eq(expected) }
